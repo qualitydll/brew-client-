@@ -50,35 +50,38 @@ jobs:
         run: |
           python3 - <<'PY'
           from pathlib import Path
-          import re
 
           path = Path("android/app/src/main/AndroidManifest.xml")
           text = path.read_text()
 
-          # Release builds need INTERNET explicitly; Flutter tooling's debug
-          # manifest can otherwise mask a missing permission.
+          def set_attr(tag, name, value):
+              prefix = name + '="'
+              start = tag.find(prefix)
+              if start < 0:
+                  return tag[:-1] + f' {name}="{value}">'
+              value_start = start + len(prefix)
+              value_end = tag.find('"', value_start)
+              return tag[:value_start] + value + tag[value_end:]
+
           if "android.permission.INTERNET" not in text:
-              text = re.sub(
-                  r"(<manifest\\b[^>]*>)",
-                  r"\\1\\n    <uses-permission android:name=\"android.permission.INTERNET\" />",
-                  text,
-                  count=1,
+              manifest_start = text.find("<manifest")
+              manifest_end = text.find(">", manifest_start)
+              if manifest_start < 0 or manifest_end < 0:
+                  raise SystemExit("Could not find <manifest> in AndroidManifest.xml")
+              text = (
+                  text[:manifest_end + 1]
+                  + '\n    <uses-permission android:name="android.permission.INTERNET" />'
+                  + text[manifest_end + 1:]
               )
 
-          # Make the application name and launcher icon explicit.
-          app_match = re.search(r"<application\\b[^>]*>", text)
-          if not app_match:
+          app_start = text.find("<application")
+          app_end = text.find(">", app_start)
+          if app_start < 0 or app_end < 0:
               raise SystemExit("Could not find <application> in AndroidManifest.xml")
-          app = app_match.group(0)
-          if re.search(r"android:label=\"[^\"]*\"", app):
-              app = re.sub(r"android:label=\"[^\"]*\"", 'android:label="Brew"', app)
-          else:
-              app = app[:-1] + ' android:label="Brew">'
-          if re.search(r"android:icon=\"[^\"]*\"", app):
-              app = re.sub(r"android:icon=\"[^\"]*\"", 'android:icon="@mipmap/ic_launcher"', app)
-          else:
-              app = app[:-1] + ' android:icon="@mipmap/ic_launcher">'
-          text = text[:app_match.start()] + app + text[app_match.end():]
+          app = text[app_start:app_end + 1]
+          app = set_attr(app, "android:label", "Brew")
+          app = set_attr(app, "android:icon", "@mipmap/ic_launcher")
+          text = text[:app_start] + app + text[app_end + 1:]
           path.write_text(text)
           print("Manifest configured: INTERNET permission, Brew label, ic_launcher icon")
           PY
