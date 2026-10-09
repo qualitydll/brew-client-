@@ -104,10 +104,15 @@ jobs:
           android/app/src/main/kotlin/dev/brew/brew/MihomoRuntime.kt
         grep -Fq 'Clash.assertReady()' \
           android/app/src/main/kotlin/dev/brew/brew/MihomoRuntime.kt
+        grep -Fq '.put("homeDir", homeDir.absolutePath)' \
+          android/app/src/main/kotlin/dev/brew/brew/MihomoVpnService.kt
+        grep -Fq '.put("selectedMap", JSONObject())' \
+          android/app/src/main/kotlin/dev/brew/brew/MihomoVpnService.kt
         grep -Fq 'MihomoRuntime.load(this)' \
           android/app/src/main/kotlin/dev/brew/brew/MainActivity.kt
         grep -Fq 'MihomoRuntime.load(this)' \
           android/app/src/main/kotlin/dev/brew/brew/MihomoVpnService.kt
+        grep -Fq 'await _waitForApi(api)' lib/state/app_state.dart
 
     - name: Upload APK
       uses: actions/upload-artifact@v4

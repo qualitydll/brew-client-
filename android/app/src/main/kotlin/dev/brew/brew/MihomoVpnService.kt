@@ -89,10 +89,10 @@ class MihomoVpnService : VpnService() {
         val homeDir = File(configPath).parentFile
             ?: error("Mihomo config has no parent directory.")
         val initParams = JSONObject()
-            .put("home-dir", homeDir.absolutePath)
+            .put("homeDir", homeDir.absolutePath)
             .put("version", Build.VERSION.SDK_INT)
             .toString()
-        val setupParams = JSONObject().put("selected-map", JSONObject()).toString()
+        val setupParams = JSONObject().put("selectedMap", JSONObject()).toString()
         val ready = CountDownLatch(1)
         var setupError: String? = null
         Clash.quickSetup(initParams, setupParams) { message ->

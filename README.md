@@ -47,6 +47,9 @@ brew ищет ядро в таком порядке:
 
 Android использует встроенное ядро `libmihomo-android` и системный
 `VpnService`; при первом подключении Android запросит разрешение на VPN.
+Bridge передаёт встроенному ядру `homeDir` и `selectedMap` в формате
+`libmihomo-android`; подключение считается успешным только после ответа
+локального Mihomo API на `/version`.
 Задача Android в GitHub Actions запускает Flutter-анализ и тесты, собирает APK,
 статически проверяет package, VPN service/permission, Mihomo-библиотеки для
 поддерживаемых ABI и wiring `Clash.load`, после чего загружает APK как артефакт
