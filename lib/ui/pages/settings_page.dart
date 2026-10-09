@@ -18,26 +18,26 @@ class SettingsPage extends StatelessWidget {
     final sections = <Widget>[
       _Section(
         icon: Icons.palette_rounded,
-        title: 'Внешний вид',
+        title: 'внешний вид',
         children: [
           _Row(
-            title: 'Тема',
+            title: 'тема',
             child: SegmentedButton<ThemeMode>(
               segments: const [
                 ButtonSegment(
                   value: ThemeMode.system,
                   icon: Icon(Icons.brightness_auto_rounded),
-                  label: Text('Авто'),
+                  label: Text('авто'),
                 ),
                 ButtonSegment(
                   value: ThemeMode.light,
                   icon: Icon(Icons.light_mode_rounded),
-                  label: Text('Светлая'),
+                  label: Text('светлая'),
                 ),
                 ButtonSegment(
                   value: ThemeMode.dark,
                   icon: Icon(Icons.dark_mode_rounded),
-                  label: Text('Тёмная'),
+                  label: Text('тёмная'),
                 ),
               ],
               selected: {s.themeMode},
@@ -46,7 +46,7 @@ class SettingsPage extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 20),
-          Text('Цвет', style: Theme.of(context).textTheme.titleSmall),
+          Text('цвет', style: Theme.of(context).textTheme.titleSmall),
           const SizedBox(height: 10),
           Wrap(
             spacing: 10,
@@ -67,7 +67,7 @@ class SettingsPage extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 20),
-          Text('Стиль палитры', style: Theme.of(context).textTheme.titleSmall),
+          Text('стиль палитры', style: Theme.of(context).textTheme.titleSmall),
           const SizedBox(height: 10),
           Wrap(
             spacing: 8,
@@ -85,24 +85,24 @@ class SettingsPage extends StatelessWidget {
       ),
       _Section(
         icon: Icons.router_rounded,
-        title: 'Подключение',
+        title: 'подключение',
         children: [
           SwitchListTile(
             contentPadding: EdgeInsets.zero,
-            title: const Text('Системный прокси'),
+            title: const Text('системный прокси'),
             subtitle: const Text(
-              'Браузеры и большинство программ пойдут через brew',
+              'браузеры и большинство программ пойдут через brew',
             ),
             value: s.systemProxy,
             onChanged: state.setSystemProxy,
           ),
           SwitchListTile(
             contentPadding: EdgeInsets.zero,
-            title: const Text('Режим TUN (весь трафик устройства)'),
+            title: const Text('режим tun (весь трафик устройства)'),
             subtitle: Text(
               state.isAdmin
-                  ? 'Виртуальный сетевой адаптер — работают даже игры и мессенджеры'
-                  : 'Требуются права администратора',
+                  ? 'виртуальный сетевой адаптер — работают даже игры и мессенджеры'
+                  : 'требуются права администратора',
             ),
             value: s.tun,
             onChanged: state.setTun,
@@ -116,22 +116,22 @@ class SettingsPage extends StatelessWidget {
                   if (await Elevation.relaunchAsAdmin()) exit(0);
                 },
                 icon: const Icon(Icons.admin_panel_settings_rounded),
-                label: const Text('Перезапустить от администратора'),
+                label: const Text('перезапустить от администратора'),
               ),
             ),
           SwitchListTile(
             contentPadding: EdgeInsets.zero,
-            title: const Text('Разрешить подключения из локальной сети'),
+            title: const Text('разрешить подключения из локальной сети'),
             value: s.allowLan,
             onChanged: state.setAllowLan,
           ),
           ListTile(
             contentPadding: EdgeInsets.zero,
-            title: const Text('Порт прокси'),
+            title: const Text('порт прокси'),
             subtitle: Text('HTTP + SOCKS5 на 127.0.0.1:${s.mixedPort}'),
             trailing: const Icon(Icons.edit_rounded),
             onTap: () async {
-              final v = await _prompt(context, 'Порт прокси', '${s.mixedPort}');
+              final v = await _prompt(context, 'порт прокси', '${s.mixedPort}');
               final port = int.tryParse(v ?? '');
               if (port != null && port > 0 && port < 65536) {
                 await state.setMixedPort(port);
@@ -142,19 +142,19 @@ class SettingsPage extends StatelessWidget {
       ),
       _Section(
         icon: Icons.memory_rounded,
-        title: 'Ядро',
+        title: 'ядро',
         children: [
           ListTile(
             contentPadding: EdgeInsets.zero,
             title: Text('mihomo ${state.coreVersion ?? ''}'),
             subtitle: Text(
-              state.corePath ?? 'Не найдено — положите mihomo рядом с программой в папку core',
+              state.corePath ?? 'не найдено — положите mihomo рядом с программой в папку core',
             ),
             trailing: const Icon(Icons.folder_open_rounded),
             onTap: () async {
               final v = await _prompt(
                 context,
-                'Путь к mihomo',
+                'путь к mihomo',
                 state.corePath ?? '',
               );
               if (v != null) {
@@ -164,19 +164,19 @@ class SettingsPage extends StatelessWidget {
           ),
           ListTile(
             contentPadding: EdgeInsets.zero,
-            title: const Text('Папка данных'),
+            title: const Text('папка данных'),
             subtitle: Text(state.dataDir),
             trailing: const Icon(Icons.copy_rounded),
             onTap: () {
               Clipboard.setData(ClipboardData(text: state.dataDir));
-              showSnack(context, 'Путь скопирован');
+              showSnack(context, 'путь скопирован');
             },
           ),
         ],
       ),
       const _Section(
         icon: Icons.info_rounded,
-        title: 'О программе',
+        title: 'о программе',
         children: [
           Text(
             'brew 0.1.0 — VPN-клиент на базе mihomo с дизайном Material You.',
@@ -187,7 +187,7 @@ class SettingsPage extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const PageHeader(title: 'Настройки'),
+        const PageHeader(title: 'настройки'),
         Expanded(
           child: ListView.separated(
             padding: const EdgeInsets.fromLTRB(32, 0, 32, 32),
@@ -219,11 +219,11 @@ Future<String?> _prompt(BuildContext context, String title, String initial) {
       actions: [
         TextButton(
           onPressed: () => Navigator.pop(context),
-          child: const Text('Отмена'),
+          child: const Text('отмена'),
         ),
         FilledButton(
           onPressed: () => Navigator.pop(context, c.text),
-          child: const Text('Сохранить'),
+          child: const Text('сохранить'),
         ),
       ],
     ),
@@ -300,7 +300,7 @@ class _Swatch extends StatelessWidget {
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     return Tooltip(
-      message: color == null ? 'Цвет системы' : '',
+      message: color == null ? 'цвет системы' : '',
       child: GestureDetector(
         onTap: onTap,
         child: MouseRegion(
