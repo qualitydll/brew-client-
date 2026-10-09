@@ -9,6 +9,7 @@ import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../core/android_core_installer.dart';
 import '../core/config_builder.dart';
 import '../core/link_parser.dart';
 import '../core/mihomo_api.dart';
@@ -85,6 +86,7 @@ class AppState extends ChangeNotifier {
   List<String> skipped = const [];
   String? coreVersion;
   String? corePath;
+  String? coreInstallError;
   DateTime? connectedAt;
   bool isAdmin = false;
 
@@ -122,6 +124,14 @@ class AppState extends ChangeNotifier {
       customPath: settings.corePath,
       dataDir: dataDir,
     );
+    if (Platform.isAndroid && corePath == null) {
+      try {
+        corePath = await AndroidCoreInstaller.install(dataDir);
+        coreInstallError = null;
+      } catch (e) {
+        coreInstallError = e.toString();
+      }
+    }
     unawaited(_detectCoreVersion());
     unawaited(
       Elevation.isAdmin().then((v) {
