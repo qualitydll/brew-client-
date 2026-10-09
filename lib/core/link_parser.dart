@@ -52,7 +52,11 @@ Map<String, dynamic>? _tryParseClashConfig(String text) {
   try {
     final doc = yamlToPlain(loadYaml(text));
     if (doc is Map<String, dynamic> &&
-        (doc.containsKey('proxies') || doc.containsKey('proxy-providers'))) {
+        (doc.containsKey('proxies') ||
+            doc.containsKey('proxy-providers') ||
+            doc.containsKey('proxy-groups') ||
+            doc.containsKey('rule-providers') ||
+            doc.containsKey('rules'))) {
       return doc;
     }
   } catch (_) {}
