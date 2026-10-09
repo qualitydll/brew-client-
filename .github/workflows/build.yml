@@ -72,7 +72,13 @@ jobs:
         echo no | avdmanager create avd --force \
           --name mihomo-ci \
           --package 'system-images;android-35;google_apis;x86_64'
-        emulator -avd mihomo-ci -no-window -gpu swiftshader_indirect \
+        emulator_bin="$ANDROID_HOME/emulator/emulator"
+        if [[ ! -x "$emulator_bin" ]]; then
+          echo "::error::Android emulator binary not found at $emulator_bin."
+          ls -la "$ANDROID_HOME/emulator" || true
+          exit 1
+        fi
+        "$emulator_bin" -avd mihomo-ci -no-window -gpu swiftshader_indirect \
           -no-snapshot -no-audio -no-boot-anim \
           > "$RUNNER_TEMP/mihomo-emulator.log" 2>&1 &
         echo "$!" > "$RUNNER_TEMP/mihomo-emulator.pid"
