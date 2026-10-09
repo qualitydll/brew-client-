@@ -28,14 +28,14 @@ class _LogsPageState extends State<LogsPage> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         PageHeader(
-          title: 'Журнал',
-          subtitle: 'Что происходит внутри ядра mihomo',
+          title: 'журнал',
+          subtitle: 'что происходит внутри ядра mihomo',
           actions: [
             SegmentedButton<String>(
               segments: const [
-                ButtonSegment(value: 'all', label: Text('Все')),
-                ButtonSegment(value: 'warning', label: Text('Важные')),
-                ButtonSegment(value: 'error', label: Text('Ошибки')),
+                ButtonSegment(value: 'all', label: Text('все')),
+                ButtonSegment(value: 'warning', label: Text('важные')),
+                ButtonSegment(value: 'error', label: Text('ошибки')),
               ],
               selected: {_filter},
               showSelectedIcon: false,
@@ -43,7 +43,7 @@ class _LogsPageState extends State<LogsPage> {
             ),
             const SizedBox(width: 8),
             IconButton.filledTonal(
-              tooltip: 'Очистить',
+              tooltip: 'очистить',
               onPressed: state.logs.clear,
               icon: const Icon(Icons.delete_sweep_rounded),
             ),
@@ -71,7 +71,7 @@ class _LogsPageState extends State<LogsPage> {
                 if (items.isEmpty) {
                   return Center(
                     child: Text(
-                      'Записей пока нет',
+                      'записей пока нет',
                       style: TextStyle(color: scheme.onSurfaceVariant),
                     ),
                   );

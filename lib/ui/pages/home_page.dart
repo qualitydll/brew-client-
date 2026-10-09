@@ -66,11 +66,11 @@ class _Hero extends StatelessWidget {
   (String, String) get _texts => switch (state.status) {
     ConnStatus.disconnected =>
       state.profiles.isEmpty
-          ? ('Добро пожаловать', 'Добавьте подписку, чтобы начать')
-          : ('Не защищено', 'Нажмите, чтобы подключиться'),
-    ConnStatus.connecting => ('Подключение…', 'Запускаем ядро mihomo'),
-    ConnStatus.disconnecting => ('Отключение…', 'Возвращаем прямое соединение'),
-    ConnStatus.connected => ('Защищено', ''),
+          ? ('добро пожаловать', 'добавьте подписку, чтобы начать')
+          : ('не защищено', 'нажмите, чтобы подключиться'),
+    ConnStatus.connecting => ('подключение…', 'запускаем ядро mihomo'),
+    ConnStatus.disconnecting => ('отключение…', 'возвращаем прямое соединение'),
+    ConnStatus.connected => ('защищено', ''),
   };
 
   @override
@@ -122,17 +122,17 @@ class _Hero extends StatelessWidget {
           segments: const [
             ButtonSegment(
               value: 'rule',
-              label: Text('Умный'),
+              label: Text('умный'),
               icon: Icon(Icons.alt_route_rounded),
             ),
             ButtonSegment(
               value: 'global',
-              label: Text('Весь трафик'),
+              label: Text('весь трафик'),
               icon: Icon(Icons.language_rounded),
             ),
             ButtonSegment(
               value: 'direct',
-              label: Text('Напрямую'),
+              label: Text('напрямую'),
               icon: Icon(Icons.trending_flat_rounded),
             ),
           ],
@@ -156,7 +156,7 @@ class _Hero extends StatelessWidget {
             child: FilledButton.icon(
               onPressed: () => Shell.go(context, 2),
               icon: const Icon(Icons.add_rounded),
-              label: const Text('Добавить подписку'),
+              label: const Text('добавить подписку'),
             ),
           ),
       ],
@@ -177,7 +177,7 @@ class _ErrorBanner extends StatelessWidget {
     final n = state.skipped.length;
     final text =
         state.error ??
-        'Пропущено серверов: $n — ядро не смогло их загрузить.\n${state.skipped.join('\n')}';
+        'пропущено серверов: $n — ядро не смогло их загрузить.\n${state.skipped.join('\n')}';
     return Container(
       constraints: const BoxConstraints(maxWidth: 460),
       padding: const EdgeInsets.fromLTRB(16, 12, 8, 12),
@@ -295,8 +295,8 @@ class _ServerCardState extends State<_ServerCard> {
     showSnack(
       context,
       best == null
-          ? 'Не удалось найти рабочий сервер'
-          : 'Выбран самый быстрый: $best',
+          ? 'не удалось найти рабочий сервер'
+          : 'выбран самый быстрый: $best',
     );
   }
 
@@ -313,7 +313,7 @@ class _ServerCardState extends State<_ServerCard> {
         children: [
           _CardTitle(
             Icons.dns_rounded,
-            'Сервер',
+            'сервер',
             trailing: server == null
                 ? null
                 : PingChip(
@@ -331,8 +331,8 @@ class _ServerCardState extends State<_ServerCard> {
                 Text(
                   server ??
                       (state.isConnected
-                          ? 'Не выбран'
-                          : 'Подключитесь, чтобы выбрать'),
+                          ? 'не выбран'
+                          : 'подключитесь, чтобы выбрать'),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: t.titleLarge?.copyWith(fontWeight: FontWeight.w600),
@@ -359,14 +359,14 @@ class _ServerCardState extends State<_ServerCard> {
                         child: CircularProgressIndicator(strokeWidth: 2),
                       )
                     : const Icon(Icons.auto_awesome_rounded),
-                label: const Text('Самый быстрый'),
+                label: const Text('самый быстрый'),
               ),
               const SizedBox(width: 8),
               TextButton(
                 onPressed: state.isConnected
                     ? () => Shell.go(context, 1)
                     : null,
-                child: const Text('Все серверы'),
+                child: const Text('все серверы'),
               ),
             ],
           ),
@@ -391,7 +391,7 @@ class _SpeedCard extends StatelessWidget {
           return Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const _CardTitle(Icons.speed_rounded, 'Скорость'),
+              const _CardTitle(Icons.speed_rounded, 'скорость'),
               const SizedBox(height: 12),
               Row(
                 children: [
@@ -491,10 +491,10 @@ class _ProfileCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const _CardTitle(Icons.layers_rounded, 'Подписка'),
+          const _CardTitle(Icons.layers_rounded, 'подписка'),
           const SizedBox(height: 12),
           if (pr == null)
-            Text('Нет подписок', style: t.titleMedium)
+            Text('нет подписок', style: t.titleMedium)
           else ...[
             Text(
               pr.name,

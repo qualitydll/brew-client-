@@ -1,0 +1,111 @@
+name: Build Android APK
+
+concurrency:
+  group: brew-android-apk-${{ github.ref }}
+  cancel-in-progress: true
+
+on:
+  push:
+    branches: [android-apk-ci]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install SVG converter
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y librsvg2-bin
+
+      - name: Render launcher icon
+        run: |
+          mkdir -p assets
+          rsvg-convert -w 1024 -h 1024 assets/brew_icon.svg > assets/brew_icon.png
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - name: Generate Android platform files
+        run: flutter create --platforms=android --project-name brew .
+
+      - name: Configure Android launcher icon
+        run: |
+          flutter pub add --dev flutter_launcher_icons
+          cat > flutter_launcher_icons.yaml <<'EOF'
+          flutter_launcher_icons:
+            android: true
+            image_path: "assets/brew_icon.png"
+            adaptive_icon_background: "#171717"
+            adaptive_icon_foreground: "assets/brew_icon.png"
+          EOF
+          dart run flutter_launcher_icons
+
+      - name: Configure Android manifest
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          path = Path("android/app/src/main/AndroidManifest.xml")
+          text = path.read_text()
+
+          def set_attr(tag, name, value):
+              prefix = name + '="'
+              start = tag.find(prefix)
+              if start < 0:
+                  return tag[:-1] + f' {name}="{value}">'
+              value_start = start + len(prefix)
+              value_end = tag.find('"', value_start)
+              return tag[:value_start] + value + tag[value_end:]
+
+          if "android.permission.INTERNET" not in text:
+              manifest_start = text.find("<manifest")
+              manifest_end = text.find(">", manifest_start)
+              if manifest_start < 0 or manifest_end < 0:
+                  raise SystemExit("Could not find <manifest> in AndroidManifest.xml")
+              text = (
+                  text[:manifest_end + 1]
+                  + '\n    <uses-permission android:name="android.permission.INTERNET" />'
+                  + text[manifest_end + 1:]
+              )
+
+          app_start = text.find("<application")
+          app_end = text.find(">", app_start)
+          if app_start < 0 or app_end < 0:
+              raise SystemExit("Could not find <application> in AndroidManifest.xml")
+          app = text[app_start:app_end + 1]
+          app = set_attr(app, "android:label", "brew")
+          app = set_attr(app, "android:icon", "@mipmap/ic_launcher")
+          text = text[:app_start] + app + text[app_end + 1:]
+          path.write_text(text)
+          print("manifest configured: internet permission, brew label, ic_launcher icon")
+          PY
+          grep -nE 'INTERNET|<application|android:label|android:icon' android/app/src/main/AndroidManifest.xml
+
+      - name: Get dependencies
+        run: flutter pub get
+
+      - name: Verify launcher resources
+        run: |
+          find android/app/src/main/res -path '*mipmap*' -type f -print
+          test -n "$(find android/app/src/main/res -type f -name 'ic_launcher.png' -print -quit)"
+
+      - name: Build release APK
+        run: flutter build apk --release
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: brew-android-apk
+          path: build/app/outputs/flutter-apk/app-release.apk
+          if-no-files-found: error
+          retention-days: 14

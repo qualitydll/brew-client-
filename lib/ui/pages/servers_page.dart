@@ -15,14 +15,14 @@ class ServersPage extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         PageHeader(
-          title: 'Серверы',
+          title: 'серверы',
           subtitle: group == null
               ? null
               : '${proxyTypeLabel(group.type)} · ${group.all.length} вариантов',
           actions: [
             if (group != null) ...[
               IconButton.filledTonal(
-                tooltip: 'Проверить пинг',
+                tooltip: 'проверить пинг',
                 onPressed: () => state.testGroup(group.name),
                 icon: const Icon(Icons.network_ping_rounded),
               ),
@@ -33,12 +33,12 @@ class ServersPage extends StatelessWidget {
                   if (context.mounted) {
                     showSnack(
                       context,
-                      best == null ? 'Нет доступных серверов' : 'Выбран: $best',
+                      best == null ? 'нет доступных серверов' : 'выбран: $best',
                     );
                   }
                 },
                 icon: const Icon(Icons.auto_awesome_rounded),
-                label: const Text('Самый быстрый'),
+                label: const Text('самый быстрый'),
               ),
             ],
           ],
@@ -105,13 +105,13 @@ class _NotConnected extends StatelessWidget {
             ),
             const SizedBox(height: 20),
             Text(
-              'Подключитесь, чтобы увидеть серверы',
+              'подключитесь, чтобы увидеть серверы',
               style: Theme.of(context).textTheme.titleMedium,
             ),
             const SizedBox(height: 16),
             FilledButton(
               onPressed: state.profiles.isEmpty ? null : state.connect,
-              child: const Text('Подключиться'),
+              child: const Text('подключиться'),
             ),
           ],
         ),
