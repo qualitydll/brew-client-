@@ -74,7 +74,7 @@ class BrewVpnService : VpnService() {
 
             val setupLatch = CountDownLatch(1)
             var setupError: String? = null
-            val initJson = """{"home-dir":${org.json.JSONObject.quote(homeDir)},"version":${Build.VERSION.SDK_INT}}"""
+            val initJson = """{"homeDir":${org.json.JSONObject.quote(homeDir)},"version":${Build.VERSION.SDK_INT}}"""
             Clash.quickSetup(initJson, """{"selected-map":{}}""") { message ->
                 setupError = message?.takeIf { it.isNotBlank() }
                 setupLatch.countDown()
@@ -99,7 +99,7 @@ class BrewVpnService : VpnService() {
             val manager = getSystemService(NOTIFICATION_SERVICE) as NotificationManager
             manager.notify(NOTIFICATION_ID, buildNotification("VPN подключён"))
             sendBroadcast(Intent(ACTION_CONNECTED).setPackage(packageName))
-        } catch (e: Exception) {
+        } catch (e: Throwable) {
             stopTunnel()
             reportError(e.message ?: e.javaClass.simpleName)
             stopSelf(startId)
