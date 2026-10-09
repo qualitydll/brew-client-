@@ -21,6 +21,8 @@ import java.util.concurrent.TimeUnit
 
 class MihomoVpnService : VpnService() {
     private val worker = Executors.newSingleThreadExecutor()
+    @Volatile private var latestStartId = 0
+    @Volatile private var activeSessionId: String? = null
     private val tunInterface = object : TunInterface {
         override fun protect(fd: Int) {
             check(this@MihomoVpnService.protect(fd)) {
@@ -37,50 +39,87 @@ class MihomoVpnService : VpnService() {
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        latestStartId = startId
         val receiver = intent?.getResultReceiver()
         when (intent?.action) {
             ACTION_START -> {
                 startForegroundCompat()
                 val configPath = intent.getStringExtra(EXTRA_CONFIG_PATH)
+                val sessionId = intent.getStringExtra(EXTRA_SESSION_ID)
+                if (sessionId.isNullOrBlank()) {
+                    receiver?.send(
+                        Activity.RESULT_CANCELED,
+                        Bundle().apply { putString(EXTRA_ERROR, "VPN session ID is missing.") },
+                    )
+                    if (activeSessionId == null) finishServiceIfCurrent(startId)
+                    return START_NOT_STICKY
+                }
                 worker.execute {
                     try {
+                        if (activeSessionId != null && activeSessionId != sessionId) {
+                            stopMihomo()
+                            activeSessionId = null
+                        }
+                        activeSessionId = sessionId
                         startMihomo(configPath ?: error("Mihomo config path is missing."))
                         receiver?.send(Activity.RESULT_OK, Bundle())
-                    } catch (error: Exception) {
+                    } catch (error: Throwable) {
                         val message = try {
-                            stopMihomo()
+                            if (activeSessionId == sessionId) {
+                                stopMihomo()
+                                activeSessionId = null
+                            }
                             error.message ?: error.toString()
-                        } catch (cleanupError: Exception) {
-                            "${error.message ?: error}; cleanup failed: ${cleanupError.message}"
+                        } catch (cleanupError: Throwable) {
+                            "${error.message ?: error}; cleanup failed: " +
+                                "${cleanupError.message ?: cleanupError}"
                         }
                         receiver?.send(
                             Activity.RESULT_CANCELED,
                             Bundle().apply { putString(EXTRA_ERROR, message) },
                         )
-                        stopForeground(true)
-                        stopSelf(startId)
+                        if (activeSessionId == null) finishServiceIfCurrent(startId)
                     }
                 }
             }
-            ACTION_STOP -> worker.execute {
-                try {
-                    stopMihomo()
-                    receiver?.send(Activity.RESULT_OK, Bundle())
-                } catch (error: Exception) {
+            ACTION_STOP -> {
+                val sessionId = intent.getStringExtra(EXTRA_SESSION_ID)
+                if (sessionId.isNullOrBlank()) {
                     receiver?.send(
                         Activity.RESULT_CANCELED,
-                        Bundle().apply {
-                            putString(EXTRA_ERROR, error.message ?: error.toString())
-                        },
+                        Bundle().apply { putString(EXTRA_ERROR, "VPN session ID is missing.") },
                     )
-                } finally {
-                    stopForeground(true)
-                    stopSelf(startId)
+                    if (activeSessionId == null) finishServiceIfCurrent(startId)
+                    return START_NOT_STICKY
+                }
+                worker.execute {
+                    try {
+                        if (activeSessionId == sessionId) {
+                            stopMihomo()
+                            activeSessionId = null
+                        }
+                        receiver?.send(Activity.RESULT_OK, Bundle())
+                        if (activeSessionId == null) finishServiceIfCurrent(startId)
+                    } catch (error: Throwable) {
+                        receiver?.send(
+                            Activity.RESULT_CANCELED,
+                            Bundle().apply {
+                                putString(EXTRA_ERROR, error.message ?: error.toString())
+                            },
+                        )
+                    }
                 }
             }
             else -> stopSelf(startId)
         }
         return START_NOT_STICKY
+    }
+
+    private fun finishServiceIfCurrent(startId: Int) {
+        if (latestStartId == startId && activeSessionId == null) {
+            stopForeground(true)
+            stopSelf(startId)
+        }
     }
 
     private fun startMihomo(configPath: String) {
@@ -206,6 +245,7 @@ class MihomoVpnService : VpnService() {
         const val ACTION_START = "dev.brew.brew.action.START_VPN"
         const val ACTION_STOP = "dev.brew.brew.action.STOP_VPN"
         const val EXTRA_CONFIG_PATH = "configPath"
+        const val EXTRA_SESSION_ID = "sessionId"
         const val EXTRA_RESULT = "resultReceiver"
         const val EXTRA_ERROR = "error"
 

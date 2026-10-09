@@ -148,3 +148,25 @@ class MihomoApiException implements Exception {
   @override
   String toString() => 'mihomo API $status: $body';
 }
+
+Future<void> waitForMihomoApi(
+  Future<String> Function() version, {
+  Duration timeout = const Duration(seconds: 15),
+  Duration retryInterval = const Duration(milliseconds: 150),
+}) async {
+  final deadline = DateTime.now().add(timeout);
+  Object? lastError;
+  while (DateTime.now().isBefore(deadline)) {
+    try {
+      await version();
+      return;
+    } catch (error) {
+      lastError = error;
+      await Future<void>.delayed(retryInterval);
+    }
+  }
+  throw StateError(
+    'Встроенное ядро Mihomo не открыло API за ${timeout.inSeconds} секунд'
+    '${lastError == null ? '' : ': $lastError'}',
+  );
+}

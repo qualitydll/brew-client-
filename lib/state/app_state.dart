@@ -78,6 +78,7 @@ class AppState extends ChangeNotifier {
   late final Settings settings;
   late final String dataDir;
   final core = MihomoCore();
+  final androidVpn = AndroidVpn();
   final traffic = TrafficStore();
   final logs = LogStore();
 
@@ -109,6 +110,7 @@ class AppState extends ChangeNotifier {
   StreamSubscription<Map<String, dynamic>>? _logSub;
   Timer? _connectionsTimer;
   bool _refreshingConnections = false;
+  String? _androidSessionId;
 
   String _serverKey(String name) =>
       '${activeProfile?.id ?? 'default'}::$name';
@@ -481,6 +483,7 @@ class AppState extends ChangeNotifier {
     notifyListeners();
     final started = DateTime.now();
     var androidServiceStarted = false;
+    String? androidSessionId;
     try {
       final content = await _profileFile(profile.id).readAsString();
       final config = applyCoreOptions(
@@ -496,8 +499,13 @@ class AppState extends ChangeNotifier {
       final api = MihomoApi(port: settings.apiPort, secret: settings.secret);
       _api = api;
       if (Platform.isAndroid) {
-        await AndroidVpn.prepare();
-        await AndroidVpn.start(configFile.path);
+        await androidVpn.prepare();
+        androidSessionId = newId();
+        _androidSessionId = androidSessionId;
+        await androidVpn.start(
+          configFile.path,
+          sessionId: androidSessionId,
+        );
         androidServiceStarted = true;
         await _waitForApi(api);
         coreVersion = await api.version();
@@ -526,13 +534,14 @@ class AppState extends ChangeNotifier {
       Object connectionError = e;
       if (androidServiceStarted) {
         try {
-          await AndroidVpn.stop();
+          await androidVpn.stop(sessionId: androidSessionId!);
         } catch (stopError) {
           connectionError = StateError('$e; VPN cleanup failed: $stopError');
         }
       } else if (!Platform.isAndroid) {
         await core.stop();
       }
+      if (_androidSessionId == androidSessionId) _androidSessionId = null;
       _api?.close();
       _api = null;
       _trafficSub?.cancel();
@@ -545,6 +554,7 @@ class AppState extends ChangeNotifier {
       activeConnections = const [];
       connectionsError = null;
       status = ConnStatus.disconnected;
+      _androidSessionId = null;
       error = connectionError.toString();
       logs.add(LogEntry('error', connectionError.toString()));
       notifyListeners();
@@ -563,7 +573,7 @@ class AppState extends ChangeNotifier {
         const JsonEncoder.withIndent('  ').convert(config),
       );
       final err = Platform.isAndroid
-          ? await AndroidVpn.validateConfig(file.path)
+          ? await androidVpn.validateConfig(file.path)
           : await MihomoCore.check(
               binary: corePath!,
               homeDir: file.parent.path,
@@ -598,17 +608,27 @@ class AppState extends ChangeNotifier {
   Future<void> disconnect() async {
     if (status == ConnStatus.disconnected) return;
     status = ConnStatus.disconnecting;
+    error = null;
     notifyListeners();
-    if (!Platform.isAndroid && settings.systemProxy) {
-      await SystemProxy.disable();
+    try {
+      if (!Platform.isAndroid && settings.systemProxy) {
+        await SystemProxy.disable();
+      }
+      if (Platform.isAndroid) {
+        final sessionId = _androidSessionId;
+        if (sessionId != null) {
+          await androidVpn.stop(sessionId: sessionId);
+        }
+      } else {
+        await core.stop();
+      }
+      await Future<void>.delayed(const Duration(milliseconds: 400));
+    } catch (e) {
+      error = e.toString();
+      logs.add(LogEntry('error', error!));
+    } finally {
+      _afterStopped();
     }
-    if (Platform.isAndroid) {
-      await AndroidVpn.stop();
-    } else {
-      await core.stop();
-    }
-    await Future<void>.delayed(const Duration(milliseconds: 400));
-    _afterStopped();
   }
 
   void _afterStopped() {
@@ -622,6 +642,7 @@ class AppState extends ChangeNotifier {
     _logSub = null;
     _api?.close();
     _api = null;
+    _androidSessionId = null;
     status = ConnStatus.disconnected;
     connectedAt = null;
     traffic.reset();
@@ -630,6 +651,7 @@ class AppState extends ChangeNotifier {
 
   Future<void> reconnect() async {
     await disconnect();
+    if (error != null) return;
     await connect();
   }
 
@@ -639,7 +661,10 @@ class AppState extends ChangeNotifier {
         await SystemProxy.disable();
       }
       if (Platform.isAndroid) {
-        await AndroidVpn.stop();
+        final sessionId = _androidSessionId;
+        if (sessionId != null) {
+          await androidVpn.stop(sessionId: sessionId);
+        }
       } else {
         await core.stop();
       }
@@ -647,21 +672,7 @@ class AppState extends ChangeNotifier {
   }
 
   Future<void> _waitForApi(MihomoApi api) async {
-    final deadline = DateTime.now().add(const Duration(seconds: 15));
-    Object? lastError;
-    while (DateTime.now().isBefore(deadline)) {
-      try {
-        await api.version();
-        return;
-      } catch (e) {
-        lastError = e;
-        await Future<void>.delayed(const Duration(milliseconds: 150));
-      }
-    }
-    throw StateError(
-      'Встроенное ядро Mihomo не открыло API за 15 секунд'
-      '${lastError == null ? '' : ': $lastError'}',
-    );
+    await waitForMihomoApi(api.version);
   }
 
   void _subscribeStreams(MihomoApi api) {

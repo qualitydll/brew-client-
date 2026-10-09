@@ -130,6 +130,22 @@ jobs:
           android/app/src/main/kotlin/dev/brew/brew/MainActivity.kt
         grep -Fq 'MihomoRuntime.load(this)' \
           android/app/src/main/kotlin/dev/brew/brew/MihomoVpnService.kt
+        grep -Fq 'EXTRA_SESSION_ID, sessionId' \
+          android/app/src/main/kotlin/dev/brew/brew/MainActivity.kt
+        grep -Fq 'EXTRA_SESSION_ID' \
+          android/app/src/main/kotlin/dev/brew/brew/MihomoVpnService.kt
+        grep -Fq 'activeSessionId == sessionId' \
+          android/app/src/main/kotlin/dev/brew/brew/MihomoVpnService.kt
+        grep -Fq 'if (activeSessionId == sessionId)' \
+          android/app/src/main/kotlin/dev/brew/brew/MihomoVpnService.kt
+        grep -Fq 'latestStartId == startId' \
+          android/app/src/main/kotlin/dev/brew/brew/MihomoVpnService.kt
+        grep -Fq 'startTimeout = const Duration(seconds: 40)' \
+          lib/core/android_vpn.dart
+        grep -Fq 'VPN cleanup failed' lib/core/android_vpn.dart
+        grep -Fq 'waitForMihomoApi(api.version)' lib/state/app_state.dart
+        test -f test/core/android_vpn_test.dart
+        test -f test/core/mihomo_api_test.dart
         grep -Fq 'await _waitForApi(api)' lib/state/app_state.dart
 
     - name: Upload APK

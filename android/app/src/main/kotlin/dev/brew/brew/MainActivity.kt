@@ -25,8 +25,12 @@ class MainActivity : FlutterActivity() {
                 when (call.method) {
                     "prepareVpn" -> prepareVpn(result)
                     "validateConfig" -> validateConfig(call.argument("path"), result)
-                    "startVpn" -> startVpn(call.argument("configPath"), result)
-                    "stopVpn" -> stopVpn(result)
+                    "startVpn" -> startVpn(
+                        call.argument("configPath"),
+                        call.argument("sessionId"),
+                        result,
+                    )
+                    "stopVpn" -> stopVpn(call.argument("sessionId"), result)
                     else -> result.notImplemented()
                 }
             }
@@ -77,14 +81,22 @@ class MainActivity : FlutterActivity() {
                     }
                 }
             }
-        } catch (error: Exception) {
+        } catch (error: Throwable) {
             result.error("mihomo_load_failed", error.message, null)
         }
     }
 
-    private fun startVpn(configPath: String?, result: MethodChannel.Result) {
+    private fun startVpn(
+        configPath: String?,
+        sessionId: String?,
+        result: MethodChannel.Result,
+    ) {
         if (configPath.isNullOrBlank()) {
             result.error("invalid_config_path", "A configuration file path is required.", null)
+            return
+        }
+        if (sessionId.isNullOrBlank()) {
+            result.error("invalid_session_id", "A VPN session ID is required.", null)
             return
         }
         if (VpnService.prepare(this) != null) {
@@ -94,6 +106,7 @@ class MainActivity : FlutterActivity() {
         val intent = Intent(this, MihomoVpnService::class.java)
             .setAction(MihomoVpnService.ACTION_START)
             .putExtra(MihomoVpnService.EXTRA_CONFIG_PATH, configPath)
+            .putExtra(MihomoVpnService.EXTRA_SESSION_ID, sessionId)
             .putExtra(MihomoVpnService.EXTRA_RESULT, resultReceiver(result))
         try {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
@@ -106,9 +119,14 @@ class MainActivity : FlutterActivity() {
         }
     }
 
-    private fun stopVpn(result: MethodChannel.Result) {
+    private fun stopVpn(sessionId: String?, result: MethodChannel.Result) {
+        if (sessionId.isNullOrBlank()) {
+            result.error("invalid_session_id", "A VPN session ID is required.", null)
+            return
+        }
         val intent = Intent(this, MihomoVpnService::class.java)
             .setAction(MihomoVpnService.ACTION_STOP)
+            .putExtra(MihomoVpnService.EXTRA_SESSION_ID, sessionId)
             .putExtra(MihomoVpnService.EXTRA_RESULT, resultReceiver(result))
         try {
             startService(intent)

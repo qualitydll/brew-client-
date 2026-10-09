@@ -1,17 +1,53 @@
 import 'package:flutter/services.dart';
 
-class AndroidVpn {
-  static const _channel = MethodChannel('dev.brew.brew/vpn');
+import 'async_timeout.dart';
 
-  static Future<void> prepare() async {
+class AndroidVpn {
+  AndroidVpn({
+    MethodChannel? channel,
+    this.validationTimeout = const Duration(seconds: 20),
+    this.startTimeout = const Duration(seconds: 40),
+    this.stopTimeout = const Duration(seconds: 10),
+  }) : _channel = channel ?? const MethodChannel('dev.brew.brew/vpn');
+
+  final MethodChannel _channel;
+  final Duration validationTimeout;
+  final Duration startTimeout;
+  final Duration stopTimeout;
+
+  Future<void> prepare() async {
     await _channel.invokeMethod<bool>('prepareVpn');
   }
 
-  static Future<String?> validateConfig(String path) =>
-      _channel.invokeMethod<String>('validateConfig', {'path': path});
+  Future<String?> validateConfig(String path) => awaitWithTimeout(
+    _channel.invokeMethod<String>('validateConfig', {'path': path}),
+    timeout: validationTimeout,
+    description: 'Mihomo config validation',
+  );
 
-  static Future<void> start(String configPath) =>
-      _channel.invokeMethod<void>('startVpn', {'configPath': configPath});
+  Future<void> start(String configPath, {required String sessionId}) async {
+    try {
+      await awaitWithTimeout(
+        _channel.invokeMethod<void>('startVpn', {
+          'configPath': configPath,
+          'sessionId': sessionId,
+        }),
+        timeout: startTimeout,
+        description: 'Mihomo VPN service start',
+      );
+    } catch (startError) {
+      try {
+        await stop(sessionId: sessionId);
+      } catch (cleanupError) {
+        throw StateError('$startError; VPN cleanup failed: $cleanupError');
+      }
+      rethrow;
+    }
+  }
 
-  static Future<void> stop() => _channel.invokeMethod<void>('stopVpn');
+  Future<void> stop({required String sessionId}) => awaitWithTimeout(
+    _channel.invokeMethod<void>('stopVpn', {'sessionId': sessionId}),
+    timeout: stopTimeout,
+    description: 'Mihomo VPN service stop',
+  );
 }
