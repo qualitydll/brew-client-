@@ -69,7 +69,7 @@ ParsedSubscription parseSubscription(String content) {
   final looksLikeConfig =
       text.startsWith('{') ||
       RegExp(
-        r'^(proxies|proxy-providers)\s*:',
+        r'^(mixed-port|port|socks-port|redir-port|tproxy-port|proxies|proxy-providers|proxy-groups|rules|rule-providers|dns|tun|mode|listeners|hosts|sniffer|geodata-mode|geox-url)\s*:',
         multiLine: true,
       ).hasMatch(text);
   if (looksLikeConfig) {
