@@ -258,7 +258,11 @@ class AppState extends ChangeNotifier {
           )
           .timeout(const Duration(seconds: 20));
       if (res.statusCode >= 400) {
-        throw Exception('Сервер вернул ${res.statusCode}');
+        final body = utf8.decode(res.bodyBytes, allowMalformed: true);
+        final snippet = body.length > 300 ? body.substring(0, 300) : body;
+        throw Exception(
+          'Сервер вернул ${res.statusCode}\nОтвет: $snippet',
+        );
       }
       return (utf8.decode(res.bodyBytes, allowMalformed: true), res);
     } on SocketException catch (e) {
