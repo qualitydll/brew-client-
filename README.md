@@ -1,7 +1,7 @@
 # brew.
 
 VPN-клиент на базе ядра [mihomo](https://github.com/MetaCubeX/mihomo) с дизайном Material You.
-Flutter: Windows — первая платформа, дальше Android, macOS и Linux.
+Flutter: Windows и Android; далее macOS и Linux.
 
 ## Возможности
 
@@ -42,6 +42,15 @@ brew ищет ядро в таком порядке:
 Проще всего положить его в `Release\core\mihomo.exe`.
 
 Для TUN программу нужно запускать от имени администратора.
+
+### Android APK
+
+Android использует встроенное ядро `libmihomo-android` и системный
+`VpnService`; при первом подключении Android запросит разрешение на VPN.
+Задача Android в GitHub Actions запускает Flutter-анализ и тесты, собирает APK,
+проверяет наличие Mihomo для поддерживаемых ABI и загружает APK как артефакт
+`android-release`. Версия ядра закреплена на v0.3.7, SHA-256 проверяется при
+сборке Gradle.
 
 ## Разработка
 

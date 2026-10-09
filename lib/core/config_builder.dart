@@ -12,6 +12,7 @@ class CoreOptions {
     required this.mode,
     required this.tun,
     required this.allowLan,
+    this.externalTun = false,
   });
 
   final int mixedPort;
@@ -20,6 +21,7 @@ class CoreOptions {
   final String mode;
   final bool tun;
   final bool allowLan;
+  final bool externalTun;
 }
 
 const _privateRules = [
@@ -103,6 +105,11 @@ Map<String, dynamic> applyCoreOptions(
       'strict-route': true,
       'dns-hijack': ['any:53', 'tcp://any:53'],
     };
+  } else {
+    cfg['tun'] = {'enable': false};
+  }
+
+  if (o.tun || o.externalTun) {
     final dns = cfg['dns'];
     if (dns is! Map || dns['enable'] != true) {
       cfg['dns'] = {
@@ -124,8 +131,6 @@ Map<String, dynamic> applyCoreOptions(
         ],
       };
     }
-  } else {
-    cfg['tun'] = {'enable': false};
   }
   return cfg;
 }

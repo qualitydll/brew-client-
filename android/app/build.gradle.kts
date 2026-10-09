@@ -1,7 +1,38 @@
+import java.security.MessageDigest
+
 plugins {
     id("com.android.application")
+    id("org.jetbrains.kotlin.android")
     // The Flutter Gradle Plugin must be applied after the Android and Kotlin Gradle plugins.
     id("dev.flutter.flutter-gradle-plugin")
+}
+
+val mihomoAndroidVersion = "0.3.7"
+val mihomoAndroidSha256 = "e9582440766f7e37f8f6b23344bee35d73e66e7e7a9fc3b90da5631f0fd19f24"
+val mihomoAndroidAar = layout.buildDirectory.file(
+    "mihomo/libmihomo-android-v$mihomoAndroidVersion.aar",
+)
+val downloadMihomoAndroid by tasks.registering {
+    inputs.property("mihomoAndroidVersion", mihomoAndroidVersion)
+    inputs.property("mihomoAndroidSha256", mihomoAndroidSha256)
+    outputs.file(mihomoAndroidAar)
+
+    doLast {
+        val target = mihomoAndroidAar.get().asFile
+        target.parentFile.mkdirs()
+        val url =
+            "https://github.com/oviron/libmihomo-android/releases/download/" +
+                "v$mihomoAndroidVersion/libmihomo-android-v$mihomoAndroidVersion.aar"
+        url.toURL().openStream().use { input ->
+            target.outputStream().use { output -> input.copyTo(output) }
+        }
+        val digest = MessageDigest.getInstance("SHA-256")
+            .digest(target.readBytes())
+            .joinToString("") { "%02x".format(it.toInt() and 0xff) }
+        check(digest == mihomoAndroidSha256) {
+            "Mihomo Android library checksum mismatch: expected $mihomoAndroidSha256, got $digest"
+        }
+    }
 }
 
 android {
@@ -36,6 +67,10 @@ android {
             signingConfig = signingConfigs.getByName("debug")
         }
     }
+}
+
+dependencies {
+    implementation(files(mihomoAndroidAar).builtBy(downloadMihomoAndroid))
 }
 
 kotlin {

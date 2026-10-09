@@ -87,38 +87,46 @@ class SettingsPage extends StatelessWidget {
         icon: Icons.router_rounded,
         title: 'Подключение',
         children: [
-          SwitchListTile(
-            contentPadding: EdgeInsets.zero,
-            title: const Text('Системный прокси'),
-            subtitle: const Text(
-              'Браузеры и большинство программ пойдут через brew',
-            ),
-            value: s.systemProxy,
-            onChanged: state.setSystemProxy,
-          ),
-          SwitchListTile(
-            contentPadding: EdgeInsets.zero,
-            title: const Text('Режим TUN (весь трафик устройства)'),
-            subtitle: Text(
-              state.isAdmin
-                  ? 'Виртуальный сетевой адаптер — работают даже игры и мессенджеры'
-                  : 'Требуются права администратора',
-            ),
-            value: s.tun,
-            onChanged: state.setTun,
-          ),
-          if (s.tun && !state.isAdmin && Platform.isWindows)
-            Align(
-              alignment: Alignment.centerLeft,
-              child: FilledButton.tonalIcon(
-                onPressed: () async {
-                  await state.shutdown();
-                  if (await Elevation.relaunchAsAdmin()) exit(0);
-                },
-                icon: const Icon(Icons.admin_panel_settings_rounded),
-                label: const Text('Перезапустить от администратора'),
+          if (Platform.isAndroid)
+            const ListTile(
+              contentPadding: EdgeInsets.zero,
+              title: Text('Android VPN'),
+              subtitle: Text('Весь трафик проходит через системный VpnService.'),
+            )
+          else ...[
+            SwitchListTile(
+              contentPadding: EdgeInsets.zero,
+              title: const Text('Системный прокси'),
+              subtitle: const Text(
+                'Браузеры и большинство программ пойдут через brew',
               ),
+              value: s.systemProxy,
+              onChanged: state.setSystemProxy,
             ),
+            SwitchListTile(
+              contentPadding: EdgeInsets.zero,
+              title: const Text('Режим TUN (весь трафик устройства)'),
+              subtitle: Text(
+                state.isAdmin
+                    ? 'Виртуальный сетевой адаптер — работают даже игры и мессенджеры'
+                    : 'Требуются права администратора',
+              ),
+              value: s.tun,
+              onChanged: state.setTun,
+            ),
+            if (s.tun && !state.isAdmin && Platform.isWindows)
+              Align(
+                alignment: Alignment.centerLeft,
+                child: FilledButton.tonalIcon(
+                  onPressed: () async {
+                    await state.shutdown();
+                    if (await Elevation.relaunchAsAdmin()) exit(0);
+                  },
+                  icon: const Icon(Icons.admin_panel_settings_rounded),
+                  label: const Text('Перезапустить от администратора'),
+                ),
+              ),
+          ],
           SwitchListTile(
             contentPadding: EdgeInsets.zero,
             title: const Text('Разрешить подключения из локальной сети'),
@@ -144,24 +152,32 @@ class SettingsPage extends StatelessWidget {
         icon: Icons.memory_rounded,
         title: 'Ядро',
         children: [
-          ListTile(
-            contentPadding: EdgeInsets.zero,
-            title: Text('mihomo ${state.coreVersion ?? ''}'),
-            subtitle: Text(
-              state.corePath ?? 'Не найдено — положите mihomo рядом с программой в папку core',
+          if (Platform.isAndroid)
+            ListTile(
+              contentPadding: EdgeInsets.zero,
+              title: Text('mihomo ${state.coreVersion ?? ''}'),
+              subtitle: const Text('Встроенное ядро, устанавливается вместе с приложением.'),
+            )
+          else
+            ListTile(
+              contentPadding: EdgeInsets.zero,
+              title: Text('mihomo ${state.coreVersion ?? ''}'),
+              subtitle: Text(
+                state.corePath ??
+                    'Не найдено — положите mihomo рядом с программой в папку core',
+              ),
+              trailing: const Icon(Icons.folder_open_rounded),
+              onTap: () async {
+                final v = await _prompt(
+                  context,
+                  'Путь к mihomo',
+                  state.corePath ?? '',
+                );
+                if (v != null) {
+                  await state.setCorePath(v.trim().isEmpty ? null : v.trim());
+                }
+              },
             ),
-            trailing: const Icon(Icons.folder_open_rounded),
-            onTap: () async {
-              final v = await _prompt(
-                context,
-                'Путь к mihomo',
-                state.corePath ?? '',
-              );
-              if (v != null) {
-                await state.setCorePath(v.trim().isEmpty ? null : v.trim());
-              }
-            },
-          ),
           ListTile(
             contentPadding: EdgeInsets.zero,
             title: const Text('Папка данных'),

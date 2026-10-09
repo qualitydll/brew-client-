@@ -1,0 +1,212 @@
+package dev.brew.brew
+
+import android.app.Activity
+import android.app.Notification
+import android.app.NotificationChannel
+import android.app.NotificationManager
+import android.content.Intent
+import android.content.pm.ServiceInfo
+import android.net.VpnService
+import android.os.Build
+import android.os.Bundle
+import android.os.ParcelFileDescriptor
+import android.os.ResultReceiver
+import io.github.oviron.libmihomo.Clash
+import io.github.oviron.libmihomo.TunInterface
+import org.json.JSONObject
+import java.io.File
+import java.util.concurrent.CountDownLatch
+import java.util.concurrent.Executors
+import java.util.concurrent.TimeUnit
+
+class MihomoVpnService : VpnService(), TunInterface {
+    private val worker = Executors.newSingleThreadExecutor()
+
+    override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        val receiver = intent?.getResultReceiver()
+        when (intent?.action) {
+            ACTION_START -> {
+                startForegroundCompat()
+                val configPath = intent.getStringExtra(EXTRA_CONFIG_PATH)
+                worker.execute {
+                    try {
+                        startMihomo(configPath ?: error("Mihomo config path is missing."))
+                        receiver?.send(Activity.RESULT_OK, Bundle())
+                    } catch (error: Exception) {
+                        val message = try {
+                            stopMihomo()
+                            error.message ?: error.toString()
+                        } catch (cleanupError: Exception) {
+                            "${error.message ?: error}; cleanup failed: ${cleanupError.message}"
+                        }
+                        receiver?.send(
+                            Activity.RESULT_CANCELED,
+                            Bundle().apply { putString(EXTRA_ERROR, message) },
+                        )
+                        stopForeground(true)
+                        stopSelf(startId)
+                    }
+                }
+            }
+            ACTION_STOP -> worker.execute {
+                try {
+                    stopMihomo()
+                    receiver?.send(Activity.RESULT_OK, Bundle())
+                } catch (error: Exception) {
+                    receiver?.send(
+                        Activity.RESULT_CANCELED,
+                        Bundle().apply {
+                            putString(EXTRA_ERROR, error.message ?: error.toString())
+                        },
+                    )
+                } finally {
+                    stopForeground(true)
+                    stopSelf(startId)
+                }
+            }
+            else -> stopSelf(startId)
+        }
+        return START_NOT_STICKY
+    }
+
+    private fun startMihomo(configPath: String) {
+        Clash.load(applicationInfo.nativeLibraryDir)
+        Clash.assertReady()
+        check(Clash.bridgeABI() == Clash.EXPECTED_BRIDGE_ABI) {
+            "Mihomo JNI bridge ABI mismatch."
+        }
+
+        val homeDir = File(configPath).parentFile
+            ?: error("Mihomo config has no parent directory.")
+        val initParams = JSONObject()
+            .put("home-dir", homeDir.absolutePath)
+            .put("version", Build.VERSION.SDK_INT)
+            .toString()
+        val setupParams = JSONObject().put("selected-map", JSONObject()).toString()
+        val ready = CountDownLatch(1)
+        var setupError: String? = null
+        Clash.quickSetup(initParams, setupParams) { message ->
+            setupError = message?.takeIf { it.isNotBlank() }
+            ready.countDown()
+        }
+        check(ready.await(30, TimeUnit.SECONDS)) {
+            "Mihomo did not finish loading the profile within 30 seconds."
+        }
+        check(setupError == null) { "Mihomo rejected the profile: $setupError" }
+
+        val tun = Builder()
+            .setSession(getString(R.string.app_name))
+            .setMtu(TUN_MTU)
+            .addAddress(IPV4_ADDRESS, 30)
+            .addRoute("0.0.0.0", 0)
+            .addDnsServer(IPV4_DNS)
+            .addAddress(IPV6_ADDRESS, 126)
+            .addRoute("::", 0)
+            .addDnsServer(IPV6_DNS)
+            .establish() ?: error("Android refused to establish the VPN interface.")
+
+        val fd = tun.detachFd()
+        try {
+            Clash.startTUN(
+                fd = fd,
+                cb = this,
+                device = "brew",
+                stack = "mixed",
+                address = "$IPV4_ADDRESS/30,$IPV6_ADDRESS/126",
+                dns = "$IPV4_DNS,$IPV6_DNS",
+                mtu = TUN_MTU,
+            )
+        } catch (error: Exception) {
+            ParcelFileDescriptor.adoptFd(fd).close()
+            throw error
+        }
+    }
+
+    private fun startForegroundCompat() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            val manager = getSystemService(NotificationManager::class.java)
+            manager.createNotificationChannel(
+                NotificationChannel(
+                    NOTIFICATION_CHANNEL,
+                    getString(R.string.app_name),
+                    NotificationManager.IMPORTANCE_LOW,
+                ),
+            )
+        }
+        val builder = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            Notification.Builder(this, NOTIFICATION_CHANNEL)
+        } else {
+            @Suppress("DEPRECATION")
+            Notification.Builder(this)
+        }
+        val notification = builder
+            .setContentTitle(getString(R.string.app_name))
+            .setContentText("VPN подключён")
+            .setSmallIcon(R.mipmap.ic_launcher)
+            .setOngoing(true)
+            .build()
+
+        if (Build.VERSION.SDK_INT >= 34) {
+            startForeground(
+                NOTIFICATION_ID,
+                notification,
+                ServiceInfo.FOREGROUND_SERVICE_TYPE_SYSTEM_EXEMPTED,
+            )
+        } else {
+            startForeground(NOTIFICATION_ID, notification)
+        }
+    }
+
+    private fun stopMihomo() {
+        if (Clash.isLoaded()) {
+            Clash.stopTun()
+        }
+    }
+
+    override fun protect(fd: Int) {
+        check(super.protect(fd)) { "Could not protect Mihomo's outbound socket." }
+    }
+
+    override fun resolverProcess(
+        protocol: Int,
+        source: String,
+        target: String,
+        uid: Int,
+    ): String = ""
+
+    override fun onRevoke() {
+        stopMihomo()
+        stopSelf()
+        super.onRevoke()
+    }
+
+    override fun onDestroy() {
+        stopMihomo()
+        worker.shutdownNow()
+        super.onDestroy()
+    }
+
+    @Suppress("DEPRECATION")
+    private fun Intent.getResultReceiver(): ResultReceiver? =
+        if (Build.VERSION.SDK_INT >= 33) {
+            getParcelableExtra(EXTRA_RESULT, ResultReceiver::class.java)
+        } else {
+            getParcelableExtra(EXTRA_RESULT)
+        }
+
+    companion object {
+        const val ACTION_START = "dev.brew.brew.action.START_VPN"
+        const val ACTION_STOP = "dev.brew.brew.action.STOP_VPN"
+        const val EXTRA_CONFIG_PATH = "configPath"
+        const val EXTRA_RESULT = "resultReceiver"
+        const val EXTRA_ERROR = "error"
+
+        private const val NOTIFICATION_CHANNEL = "brew_vpn"
+        private const val NOTIFICATION_ID = 1
+        private const val TUN_MTU = 1400
+        private const val IPV4_ADDRESS = "172.19.0.1"
+        private const val IPV4_DNS = "172.19.0.2"
+        private const val IPV6_ADDRESS = "fdfe:dcba:9876::1"
+        private const val IPV6_DNS = "fdfe:dcba:9876::2"
+    }
+}

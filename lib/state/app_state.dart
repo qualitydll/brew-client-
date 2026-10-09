@@ -9,6 +9,7 @@ import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../core/android_vpn.dart';
 import '../core/config_builder.dart';
 import '../core/link_parser.dart';
 import '../core/mihomo_api.dart';
@@ -118,10 +119,12 @@ class AppState extends ChangeNotifier {
     await Directory(p.join(dataDir, 'profiles')).create(recursive: true);
     await Directory(p.join(dataDir, 'home')).create(recursive: true);
     await _loadProfiles();
-    corePath = await MihomoCore.locate(
-      customPath: settings.corePath,
-      dataDir: dataDir,
-    );
+    if (!Platform.isAndroid) {
+      corePath = await MihomoCore.locate(
+        customPath: settings.corePath,
+        dataDir: dataDir,
+      );
+    }
     unawaited(_detectCoreVersion());
     unawaited(
       Elevation.isAdmin().then((v) {
@@ -337,8 +340,11 @@ class AppState extends ChangeNotifier {
     apiPort: settings.apiPort,
     secret: settings.secret,
     mode: settings.mode,
-    tun: settings.tun,
+    // Android supplies its TUN descriptor through VpnService instead of
+    // asking mihomo to create a second, independent TUN interface.
+    tun: !Platform.isAndroid && settings.tun,
     allowLan: settings.allowLan,
+    externalTun: Platform.isAndroid,
   );
 
   Future<void> connect() async {
@@ -348,7 +354,7 @@ class AppState extends ChangeNotifier {
       notifyListeners();
       return;
     }
-    if (corePath == null) {
+    if (corePath == null && !Platform.isAndroid) {
       error = 'Не найдено ядро mihomo. Укажите путь в настройках.';
       notifyListeners();
       return;
@@ -358,6 +364,7 @@ class AppState extends ChangeNotifier {
     skipped = const [];
     notifyListeners();
     final started = DateTime.now();
+    var androidServiceStarted = false;
     try {
       final content = await _profileFile(profile.id).readAsString();
       final config = applyCoreOptions(
@@ -372,13 +379,21 @@ class AppState extends ChangeNotifier {
 
       final api = MihomoApi(port: settings.apiPort, secret: settings.secret);
       _api = api;
-      await core.start(
-        binary: corePath!,
-        homeDir: p.join(dataDir, 'home'),
-        configPath: configFile.path,
-        api: api,
-      );
-      if (settings.systemProxy && !settings.tun) {
+      if (Platform.isAndroid) {
+        await AndroidVpn.prepare();
+        await AndroidVpn.start(configFile.path);
+        androidServiceStarted = true;
+        await _waitForApi(api);
+        coreVersion = await api.version();
+      } else {
+        await core.start(
+          binary: corePath!,
+          homeDir: p.join(dataDir, 'home'),
+          configPath: configFile.path,
+          api: api,
+        );
+      }
+      if (!Platform.isAndroid && settings.systemProxy && !settings.tun) {
         await SystemProxy.enable(settings.mixedPort);
       }
       _subscribeStreams(api);
@@ -392,11 +407,21 @@ class AppState extends ChangeNotifier {
       connectedAt = DateTime.now();
       notifyListeners();
     } catch (e) {
-      await core.stop();
+      Object connectionError = e;
+      if (androidServiceStarted) {
+        try {
+          await AndroidVpn.stop();
+        } catch (stopError) {
+          connectionError = StateError('$e; VPN cleanup failed: $stopError');
+        }
+      } else if (!Platform.isAndroid) {
+        await core.stop();
+      }
+      _api?.close();
       _api = null;
       status = ConnStatus.disconnected;
-      error = e.toString();
-      logs.add(LogEntry('error', e.toString()));
+      error = connectionError.toString();
+      logs.add(LogEntry('error', connectionError.toString()));
       notifyListeners();
     }
   }
@@ -412,11 +437,13 @@ class AppState extends ChangeNotifier {
       await file.writeAsString(
         const JsonEncoder.withIndent('  ').convert(config),
       );
-      final err = await MihomoCore.check(
-        binary: corePath!,
-        homeDir: file.parent.path,
-        configPath: file.path,
-      );
+      final err = Platform.isAndroid
+          ? await AndroidVpn.validateConfig(file.path)
+          : await MihomoCore.check(
+              binary: corePath!,
+              homeDir: file.parent.path,
+              configPath: file.path,
+            );
       if (err == null) return dropped;
       final m = RegExp(r'^proxy (\d+):').firstMatch(err);
       final proxies = [...(config['proxies'] as List? ?? const [])];
@@ -447,8 +474,14 @@ class AppState extends ChangeNotifier {
     if (status == ConnStatus.disconnected) return;
     status = ConnStatus.disconnecting;
     notifyListeners();
-    if (settings.systemProxy) await SystemProxy.disable();
-    await core.stop();
+    if (!Platform.isAndroid && settings.systemProxy) {
+      await SystemProxy.disable();
+    }
+    if (Platform.isAndroid) {
+      await AndroidVpn.stop();
+    } else {
+      await core.stop();
+    }
     await Future<void>.delayed(const Duration(milliseconds: 400));
     _afterStopped();
   }
@@ -473,9 +506,33 @@ class AppState extends ChangeNotifier {
 
   Future<void> shutdown() async {
     if (status != ConnStatus.disconnected) {
-      if (settings.systemProxy) await SystemProxy.disable();
-      await core.stop();
+      if (!Platform.isAndroid && settings.systemProxy) {
+        await SystemProxy.disable();
+      }
+      if (Platform.isAndroid) {
+        await AndroidVpn.stop();
+      } else {
+        await core.stop();
+      }
     }
+  }
+
+  Future<void> _waitForApi(MihomoApi api) async {
+    final deadline = DateTime.now().add(const Duration(seconds: 15));
+    Object? lastError;
+    while (DateTime.now().isBefore(deadline)) {
+      try {
+        await api.version();
+        return;
+      } catch (e) {
+        lastError = e;
+        await Future<void>.delayed(const Duration(milliseconds: 150));
+      }
+    }
+    throw StateError(
+      'Встроенное ядро Mihomo не открыло API за 15 секунд'
+      '${lastError == null ? '' : ': $lastError'}',
+    );
   }
 
   void _subscribeStreams(MihomoApi api) {
