@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../../core/system_proxy.dart';
+import '../../core/windows_startup.dart';
 import '../../state/app_state.dart';
 import '../theme.dart';
 import '../widgets/common.dart';
@@ -140,6 +141,38 @@ class SettingsPage extends StatelessWidget {
           ),
         ],
       ),
+      if (Platform.isWindows)
+        _Section(
+          icon: Icons.power_settings_new_rounded,
+          title: 'Запуск',
+          children: [
+            SwitchListTile(
+              contentPadding: EdgeInsets.zero,
+              title: const Text('Автозапуск вместе с Windows'),
+              subtitle: const Text(
+                'Brew запустится при входе в систему и свернётся на панель задач',
+              ),
+              value: s.autostart,
+              onChanged: (enabled) async {
+                try {
+                  await WindowsStartup.setEnabled(enabled);
+                  s.autostart = enabled;
+                  state.notifyListeners();
+                  if (context.mounted) {
+                    showSnack(
+                      context,
+                      enabled ? 'Автозапуск включён' : 'Автозапуск выключен',
+                    );
+                  }
+                } catch (e) {
+                  if (context.mounted) {
+                    showSnack(context, 'Не удалось изменить автозапуск: $e');
+                  }
+                }
+              },
+            ),
+          ],
+        ),
       _Section(
         icon: Icons.memory_rounded,
         title: 'Ядро',
@@ -148,7 +181,12 @@ class SettingsPage extends StatelessWidget {
             contentPadding: EdgeInsets.zero,
             title: Text('mihomo ${state.coreVersion ?? ''}'),
             subtitle: Text(
-              state.corePath ?? 'Не найдено — положите mihomo рядом с программой в папку core',
+              state.corePath ??
+                  (Platform.isAndroid
+                      ? (state.coreInstallError == null
+                          ? 'Ядро ещё не установлено'
+                          : 'Не удалось установить Mihomo: ${state.coreInstallError}')
+                      : 'Не найдено — положите mihomo рядом с программой в папку core'),
             ),
             trailing: const Icon(Icons.folder_open_rounded),
             onTap: () async {

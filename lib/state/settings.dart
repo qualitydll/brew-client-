@@ -56,6 +56,10 @@ class Settings {
   bool get allowLan => _prefs.getBool('allowLan') ?? false;
   set allowLan(bool v) => _prefs.setBool('allowLan', v);
 
+  /// Start Windows with the app minimized to the taskbar.
+  bool get autostart => _prefs.getBool('autostart') ?? false;
+  set autostart(bool v) => _prefs.setBool('autostart', v);
+
   String? get corePath => _prefs.getString('corePath');
   set corePath(String? v) =>
       v == null ? _prefs.remove('corePath') : _prefs.setString('corePath', v);

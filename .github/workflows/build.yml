@@ -2,29 +2,68 @@ name: Build Windows EXE
 
 on:
   push:
+    branches: [ main, "feature/**" ]
+  pull_request:
     branches: [ main ]
   workflow_dispatch:
+
+permissions:
+  contents: read
 
 jobs:
   build:
     runs-on: windows-latest
 
     steps:
-    - uses: actions/checkout@v4
-    
-    - name: Setup Flutter
-      uses: subosito/flutter-action@v2
-      with:
-        channel: 'stable'
-        
-    - name: Get dependencies
-      run: flutter pub get
-      
-    - name: Build Windows
-      run: flutter build windows --release
-      
-    - name: Upload Artifact
-      uses: actions/upload-artifact@v4
-      with:
-        name: windows-release
-        path: build/windows/x64/runner/Release/
+      - uses: actions/checkout@v4
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+
+      - name: Get dependencies
+        run: flutter pub get
+
+      - name: Test subscription routing
+        run: flutter test
+
+      - name: Build Windows
+        run: flutter build windows --release
+
+      - name: Download mihomo core
+        shell: pwsh
+        run: |
+          $release = Invoke-RestMethod -Uri "https://api.github.com/repos/MetaCubeX/mihomo/releases/latest" -Headers @{ "User-Agent" = "brew-windows-build" }
+          $asset = $release.assets | Where-Object { $_.name -match '^mihomo-windows-amd64-v.*\.zip$' } | Select-Object -First 1
+          if (-not $asset) {
+            throw "Could not find a Windows amd64 mihomo release ZIP."
+          }
+
+          $archive = Join-Path $env:RUNNER_TEMP "mihomo.zip"
+          $extract = Join-Path $env:RUNNER_TEMP "mihomo"
+          Invoke-WebRequest -Uri $asset.browser_download_url -OutFile $archive
+          Expand-Archive -Path $archive -DestinationPath $extract -Force
+
+          $binary = Get-ChildItem -Path $extract -Recurse -File |
+            Where-Object { $_.Name -match '^mihomo.*\.exe$' } |
+            Select-Object -First 1
+          if (-not $binary) {
+            throw "mihomo.exe was not found in the downloaded archive."
+          }
+
+          $coreDir = "build/windows/x64/runner/Release/core"
+          New-Item -ItemType Directory -Path $coreDir -Force | Out-Null
+          Copy-Item $binary.FullName (Join-Path $coreDir "mihomo.exe") -Force
+
+      - name: Package Windows release
+        shell: pwsh
+        run: |
+          Compress-Archive -Path "build/windows/x64/runner/Release/*" -DestinationPath "build/brew-windows-x64.zip" -Force
+
+      - name: Upload Windows release
+        uses: actions/upload-artifact@v4
+        with:
+          name: brew-windows-x64
+          path: build/brew-windows-x64.zip
+          if-no-files-found: error

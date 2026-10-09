@@ -12,10 +12,12 @@ import 'ui/theme.dart';
 bool get isDesktop =>
     Platform.isWindows || Platform.isLinux || Platform.isMacOS;
 
-Future<void> main() async {
+Future<void> main(List<String> args) async {
   WidgetsFlutterBinding.ensureInitialized();
   final state = AppState();
   await state.init();
+
+  final startMinimized = Platform.isWindows && args.contains('--minimized');
 
   if (isDesktop) {
     await windowManager.ensureInitialized();
@@ -29,7 +31,11 @@ Future<void> main() async {
     );
     await windowManager.waitUntilReadyToShow(options, () async {
       await windowManager.show();
-      await windowManager.focus();
+      if (startMinimized) {
+        await windowManager.minimize();
+      } else {
+        await windowManager.focus();
+      }
     });
     await windowManager.setPreventClose(true);
     windowManager.addListener(_CloseHandler(state));

@@ -81,8 +81,17 @@ ParsedSubscription parseSubscription(String content) {
     final config = _tryParseClashConfig(text);
     if (config != null) return ParsedSubscription(clashConfig: config);
     final decoded = tryDecodeBase64(text);
-    if (decoded != null && decoded.contains('://')) {
-      return ParsedSubscription(proxies: parseLinks(decoded));
+    if (decoded != null) {
+      final decodedText = decoded.trim();
+      // Some providers base64-encode a complete Clash/mihomo YAML config.
+      // Parse it as a config first so its proxy groups, rules and DNS survive.
+      final decodedConfig = _tryParseClashConfig(decodedText);
+      if (decodedConfig != null) {
+        return ParsedSubscription(clashConfig: decodedConfig);
+      }
+      if (decodedText.contains('://')) {
+        return ParsedSubscription(proxies: parseLinks(decodedText));
+      }
     }
     return ParsedSubscription();
   }
