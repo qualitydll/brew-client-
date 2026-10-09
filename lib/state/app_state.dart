@@ -4,6 +4,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:http/http.dart' as http;
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
@@ -393,6 +394,16 @@ class AppState extends ChangeNotifier {
     notifyListeners();
     final started = DateTime.now();
     try {
+      // Android requires explicit user consent through VpnService.prepare().
+      // Do this before launching Mihomo; desktop connection flow stays unchanged.
+      if (Platform.isAndroid) {
+        final allowed = await const MethodChannel('brew/native')
+                .invokeMethod<bool>('prepareVpn') ??
+            false;
+        if (!allowed) {
+          throw Exception('Разрешение Android VPN не предоставлено');
+        }
+      }
       final content = await _profileFile(profile.id).readAsString();
       final config = applyCoreOptions(
         baseConfigFor(parseSubscription(content)),
