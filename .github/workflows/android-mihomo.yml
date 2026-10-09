@@ -145,14 +145,14 @@ jobs:
               pos = text.find(marker)
               if pos < 0:
                   raise SystemExit("Could not find defaultConfig block in " + str(path))
-              line_start = text.rfind("\\n", 0, pos) + 1
+              line_start = text.rfind("\n", 0, pos) + 1
               indent = text[line_start:pos]
               block = (
-                  indent + "packaging {\\n"
-                  + indent + "    jniLibs {\\n"
-                  + indent + "        useLegacyPackaging = true\\n"
-                  + indent + "    }\\n"
-                  + indent + "}\\n\\n"
+                  indent + "packaging {\n"
+                  + indent + "    jniLibs {\n"
+                  + indent + "        useLegacyPackaging = true\n"
+                  + indent + "    }\n"
+                  + indent + "}\n\n"
               )
               text = text[:line_start] + block + text[line_start:]
               path.write_text(text)
