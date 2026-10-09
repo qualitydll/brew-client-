@@ -1,15 +1,26 @@
-name: Build Android APK with bundled Mihomo
+name: Build Android APK with embedded Mihomo VPN
+
+concurrency:
+  group: brew-android-mihomo-${{ github.ref }}-${{ github.sha }}
+  cancel-in-progress: true
 
 on:
   push:
-    branches: [fix/android-bundled-mihomo]
+    branches:
+      - android-mihomo-integration
+      - fix/android-vpnservice-mihomo
+      - fix/android-bundled-mihomo
+  pull_request:
+    branches:
+      - android-mihomo-integration
+    types: [opened, synchronize, reopened]
   workflow_dispatch:
 
 permissions:
   contents: read
 
 jobs:
-  build:
+  build-android:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -20,10 +31,11 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y librsvg2-bin
 
-      - name: Render launcher icon
-        run: |
-          mkdir -p assets
-          rsvg-convert -w 1024 -h 1024 assets/brew_icon.svg > assets/brew_icon.png
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
 
       - name: Set up Flutter
         uses: subosito/flutter-action@v2
@@ -31,178 +43,39 @@ jobs:
           channel: stable
           cache: true
 
-      - name: Generate Android platform files
+      - name: Generate Android project
         run: flutter create --platforms=android --project-name brew .
 
-      - name: Bundle Android ARM64 Mihomo
+      - name: Install embedded Mihomo Android bridge
+        shell: bash
         run: |
-          mkdir -p android/app/src/main/jniLibs/arm64-v8a
-          curl -fL --retry 3 \
-            https://github.com/MetaCubeX/mihomo/releases/download/v1.19.32/mihomo-android-arm64-v8-v1.19.32.gz \
-            -o /tmp/mihomo.gz
-          gzip -dc /tmp/mihomo.gz > android/app/src/main/jniLibs/arm64-v8a/libmihomo.so
-          chmod 755 android/app/src/main/jniLibs/arm64-v8a/libmihomo.so
-          file android/app/src/main/jniLibs/arm64-v8a/libmihomo.so
-
-      - name: Add native path channel
-        run: |
-          mkdir -p android/app/src/main/kotlin/com/example/brew
-          cat > android/app/src/main/kotlin/com/example/brew/MainActivity.kt <<'EOF'
-          package com.example.brew
-
-          import io.flutter.embedding.android.FlutterActivity
-          import io.flutter.embedding.engine.FlutterEngine
-          import io.flutter.plugin.common.MethodChannel
-          import java.io.File
-
-          class MainActivity : FlutterActivity() {
-              private var vpnPermissionResult: MethodChannel.Result? = null
-
-              override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
-                  super.configureFlutterEngine(flutterEngine)
-                  MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "brew/native")
-                      .setMethodCallHandler { call, result ->
-                          when (call.method) {
-                              "mihomoPath" -> {
-                                  val binary = File(applicationInfo.nativeLibraryDir, "libmihomo.so")
-                                  if (binary.isFile) result.success(binary.absolutePath)
-                                  else result.error("MIHOMO_MISSING", "Bundled Mihomo binary not found", null)
-                              }
-                              "prepareVpn" -> {
-                                  if (vpnPermissionResult != null) {
-                                      result.error("VPN_REQUEST_PENDING", "VPN permission request is already pending", null)
-                                      return@setMethodCallHandler
-                                  }
-                                  val intent = android.net.VpnService.prepare(this)
-                                  if (intent == null) {
-                                      startService(android.content.Intent(this, BrewVpnService::class.java))
-                                      result.success(true)
-                                  } else {
-                                      vpnPermissionResult = result
-                                      startActivityForResult(intent, VPN_REQUEST_CODE)
-                                  }
-                              }
-                              else -> result.notImplemented()
-                          }
-                      }
-              }
-
-              @Deprecated("Deprecated in Android")
-              override fun onActivityResult(requestCode: Int, resultCode: Int, data: android.content.Intent?) {
-                  super.onActivityResult(requestCode, resultCode, data)
-                  if (requestCode != VPN_REQUEST_CODE) return
-                  val pending = vpnPermissionResult ?: return
-                  vpnPermissionResult = null
-                  if (resultCode == RESULT_OK) {
-                      try {
-                          startService(android.content.Intent(this, BrewVpnService::class.java))
-                          pending.success(true)
-                      } catch (e: Exception) {
-                          pending.error("VPN_SERVICE_START_FAILED", e.message, null)
-                      }
-                  } else {
-                      pending.success(false)
-                  }
-              }
-
-              companion object {
-                  private const val VPN_REQUEST_CODE = 7304
-              }
-          }
-          EOF
-
-      - name: Add Android VPN service
-        run: |
-          cat > android/app/src/main/kotlin/com/example/brew/BrewVpnService.kt <<'EOF'
-          package com.example.brew
-
-          import android.net.VpnService
-          import android.content.Intent
-
-          class BrewVpnService : VpnService() {
-              override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-                  // Permission and service lifecycle are owned by Android.
-                  // Mihomo is launched by Flutter only after VPN consent succeeds.
-                  return START_NOT_STICKY
-              }
-          }
-          EOF
-
-      - name: Configure Android launcher icon and manifest
-        run: |
-          flutter pub add --dev flutter_launcher_icons
-          cat > flutter_launcher_icons.yaml <<'EOF'
-          flutter_launcher_icons:
-            android: true
-            image_path: "assets/brew_icon.png"
-            adaptive_icon_background: "#171717"
-            adaptive_icon_foreground: "assets/brew_icon.png"
-          EOF
-          dart run flutter_launcher_icons
-          python3 - <<'PY'
-          from pathlib import Path
-          path = Path("android/app/src/main/AndroidManifest.xml")
-          text = path.read_text()
-          if "android.permission.INTERNET" not in text:
-              i = text.find(">", text.find("<manifest"))
-              text = text[:i+1] + '\n    <uses-permission android:name="android.permission.INTERNET" />' + text[i+1:]
-          # Register the VPN service so Android can show its system consent dialog.
-          service = '''
-              <service
-                  android:name=".BrewVpnService"
-                  android:permission="android.permission.BIND_VPN_SERVICE"
-                  android:exported="false">
-                  <intent-filter>
-                      <action android:name="android.net.VpnService" />
-                  </intent-filter>
-              </service>
-          '''
-          if "android.net.VpnService" not in text:
-              end_manifest = text.rfind("</application>")
-              if end_manifest < 0:
-                  raise SystemExit("Could not find application closing tag")
-              text = text[:end_manifest] + service + "\n" + text[end_manifest:]
-          start = text.find("<application")
-          end = text.find(">", start)
-          app = text[start:end+1]
-          if 'android:label="' in app:
-              import re
-              app = re.sub(r'android:label="[^"]*"', 'android:label="brew"', app)
-          else:
-              app = app[:-1] + ' android:label="brew">'
-          if 'android:icon="' in app:
-              import re
-              app = re.sub(r'android:icon="[^"]*"', 'android:icon="@mipmap/ic_launcher"', app)
-          else:
-              app = app[:-1] + ' android:icon="@mipmap/ic_launcher">'
-          if 'android:extractNativeLibs="' in app:
-              import re
-              app = re.sub(r'android:extractNativeLibs="[^"]*"', 'android:extractNativeLibs="true"', app)
-          else:
-              app = app[:-1] + ' android:extractNativeLibs="true">'
-          text = text[:start] + app + text[end+1:]
-          path.write_text(text)
-          PY
-
-      - name: Enable extraction of executable Mihomo library
-        run: |
+          set -euo pipefail
+          mkdir -p android/app/libs android/app/src/main/kotlin/com/example/brew
+          curl --fail --location --retry 3 \
+            https://github.com/oviron/libmihomo-android/releases/download/v0.3.7/libmihomo-android-v0.3.7.aar \
+            --output android/app/libs/libmihomo-android-v0.3.7.aar
+          test -s android/app/libs/libmihomo-android-v0.3.7.aar
+          echo "e9582440766f7e37f8f6b23344bee35d73e66e7e7a9fc3b90da5631f0fd19f24  android/app/libs/libmihomo-android-v0.3.7.aar" | sha256sum --check
+          cp tool/android/MainActivity.kt android/app/src/main/kotlin/com/example/brew/MainActivity.kt
+          cp tool/android/BrewVpnService.kt android/app/src/main/kotlin/com/example/brew/BrewVpnService.kt
           python3 - <<'PY'
           from pathlib import Path
 
-          candidates = [
-              Path("android/app/build.gradle.kts"),
-              Path("android/app/build.gradle"),
-          ]
-          path = next((p for p in candidates if p.exists()), None)
-          if path is None:
-              raise SystemExit("Android app Gradle file not found")
-
+          path = Path("android/app/build.gradle.kts")
           text = path.read_text()
+          dependency = 'implementation(files("libs/libmihomo-android-v0.3.7.aar"))'
+          if dependency not in text:
+              marker = "dependencies {"
+              if marker in text:
+                  text = text.replace(marker, marker + "\n    " + dependency, 1)
+              else:
+                  # Newer Flutter templates may omit a dependencies block entirely.
+                  text += "\n\ndependencies {\n    " + dependency + "\n}\n"
           if "useLegacyPackaging" not in text:
               marker = "defaultConfig {"
               pos = text.find(marker)
               if pos < 0:
-                  raise SystemExit("Could not find defaultConfig in " + str(path))
+                  raise SystemExit("Could not find defaultConfig block in app Gradle file")
               line_start = text.rfind("\n", 0, pos) + 1
               indent = text[line_start:pos]
               block = (
@@ -213,36 +86,112 @@ jobs:
                   + indent + "}\n\n"
               )
               text = text[:line_start] + block + text[line_start:]
-              path.write_text(text)
-
-          if "useLegacyPackaging" not in path.read_text():
-              raise SystemExit("useLegacyPackaging was not configured")
-          print("Configured executable-library extraction in " + str(path))
+          path.write_text(text)
+          print("Configured the pinned libmihomo-android AAR and JNI packaging")
           PY
-          grep -n 'extractNativeLibs' android/app/src/main/AndroidManifest.xml
-          grep -n 'useLegacyPackaging' android/app/build.gradle.kts 2>/dev/null || grep -n 'useLegacyPackaging' android/app/build.gradle
+
+      - name: Configure Android launcher icon
+        run: |
+          mkdir -p assets
+          rsvg-convert -w 1024 -h 1024 assets/brew_icon.svg > assets/brew_icon.png
+          flutter pub add --dev flutter_launcher_icons
+          cat > flutter_launcher_icons.yaml <<'EOF'
+          flutter_launcher_icons:
+            android: true
+            image_path: "assets/brew_icon.png"
+            adaptive_icon_background: "#171717"
+            adaptive_icon_foreground: "assets/brew_icon.png"
+          EOF
+          dart run flutter_launcher_icons
+
+      - name: Configure Android VPN manifest
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          path = Path("android/app/src/main/AndroidManifest.xml")
+          text = path.read_text()
+
+          manifest_start = text.find("<manifest")
+          manifest_end = text.find(">", manifest_start)
+          if manifest_start < 0 or manifest_end < 0:
+              raise SystemExit("Could not find <manifest> in AndroidManifest.xml")
+
+          permissions = [
+              "android.permission.INTERNET",
+              "android.permission.FOREGROUND_SERVICE",
+              "android.permission.FOREGROUND_SERVICE_SYSTEM_EXEMPTED",
+          ]
+          insert = ""
+          for permission in permissions:
+              if permission not in text:
+                  insert += f'\n    <uses-permission android:name="{permission}" />'
+          if insert:
+              text = text[:manifest_end + 1] + insert + text[manifest_end + 1:]
+
+          app_start = text.find("<application")
+          app_end = text.find(">", app_start)
+          if app_start < 0 or app_end < 0:
+              raise SystemExit("Could not find <application> in AndroidManifest.xml")
+          app = text[app_start:app_end + 1]
+          def set_attr(tag, name, value):
+              prefix = name + '="'
+              start = tag.find(prefix)
+              if start < 0:
+                  return tag[:-1] + f' {name}="{value}">'
+              value_start = start + len(prefix)
+              value_end = tag.find('"', value_start)
+              return tag[:value_start] + value + tag[value_end:]
+          app = set_attr(app, "android:label", "brew")
+          app = set_attr(app, "android:icon", "@mipmap/ic_launcher")
+          app = set_attr(app, "android:extractNativeLibs", "true")
+          text = text[:app_start] + app + text[app_end + 1:]
+
+          if "BrewVpnService" not in text:
+              service = """
+                  <service
+                      android:name=".BrewVpnService"
+                      android:permission="android.permission.BIND_VPN_SERVICE"
+                      android:exported="true"
+                      android:foregroundServiceType="systemExempted">
+                      <intent-filter>
+                          <action android:name="android.net.VpnService" />
+                      </intent-filter>
+                  </service>
+          """
+              if "</application>" not in text:
+                  raise SystemExit("Could not find </application> in AndroidManifest.xml")
+              text = text.replace("</application>", service + "\n    </application>", 1)
+          path.write_text(text)
+          print("Configured permissions and Android VpnService")
+          PY
+          grep -nE 'INTERNET|FOREGROUND_SERVICE|BrewVpnService|BIND_VPN_SERVICE|PROPERTY_SPECIAL' android/app/src/main/AndroidManifest.xml
+
+      - name: Remove generated placeholder test
+        run: rm -f test/widget_test.dart
 
       - name: Get dependencies
         run: flutter pub get
 
-      - name: Verify bundled core and build
+      - name: Analyze Dart code
+        run: flutter analyze --no-pub
+
+      - name: Verify Android VPN integration
         run: |
-          set -euo pipefail
-          test -s android/app/src/main/jniLibs/arm64-v8a/libmihomo.so
-          grep -q 'mihomoPath' android/app/src/main/kotlin/com/example/brew/MainActivity.kt
-          flutter build apk --release --target-platform android-arm64
-          APK=build/app/outputs/flutter-apk/app-release.apk
-          echo 'Checking Mihomo inside the final APK...'
-          unzip -l "$APK" | grep -F 'lib/arm64-v8a/libmihomo.so'
-          unzip -p "$APK" lib/arm64-v8a/libmihomo.so > /tmp/apk-mihomo
-          test -s /tmp/apk-mihomo
-          file /tmp/apk-mihomo
-          echo 'Mihomo payload is present in the final APK.'
+          test -s android/app/libs/libmihomo-android-v0.3.7.aar
+          grep -q 'BrewVpnService' android/app/src/main/AndroidManifest.xml
+          grep -q 'libmihomo-android-v0.3.7.aar' android/app/build.gradle.kts
+          grep -q 'class BrewVpnService' android/app/src/main/kotlin/com/example/brew/BrewVpnService.kt
+          find android/app/src/main/res -path '*mipmap*' -type f -print
+          test -n "$(find android/app/src/main/res -type f -name 'ic_launcher.png' -print -quit)"
+
+      - name: Build arm64 APK
+        run: flutter build apk --release --target-platform android-arm64
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: brew-android-arm64-mihomo-apk
+          name: brew-android-arm64-mihomo-vpn
           path: build/app/outputs/flutter-apk/app-release.apk
           if-no-files-found: error
-          retention-days: 14
+          retention-days: 90
