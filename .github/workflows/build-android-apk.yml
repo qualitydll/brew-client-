@@ -1,5 +1,9 @@
 name: Build Android APK
 
+concurrency:
+  group: brew-android-apk-${{ github.ref }}
+  cancel-in-progress: true
+
 on:
   push:
     branches: [android-apk-ci]
@@ -79,11 +83,11 @@ jobs:
           if app_start < 0 or app_end < 0:
               raise SystemExit("Could not find <application> in AndroidManifest.xml")
           app = text[app_start:app_end + 1]
-          app = set_attr(app, "android:label", "Brew")
+          app = set_attr(app, "android:label", "brew")
           app = set_attr(app, "android:icon", "@mipmap/ic_launcher")
           text = text[:app_start] + app + text[app_end + 1:]
           path.write_text(text)
-          print("Manifest configured: INTERNET permission, Brew label, ic_launcher icon")
+          print("manifest configured: internet permission, brew label, ic_launcher icon")
           PY
           grep -nE 'INTERNET|<application|android:label|android:icon' android/app/src/main/AndroidManifest.xml
 
