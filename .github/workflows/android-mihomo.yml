@@ -140,6 +140,20 @@ jobs:
           chmod 755 android/app/src/main/jniLibs/arm64-v8a/libmihomo.so
           file android/app/src/main/jniLibs/arm64-v8a/libmihomo.so
 
+      - name: Remove Mihomo from Flutter asset manifest
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          path = Path("pubspec.yaml")
+          text = path.read_text()
+          text = text.replace("    - assets/bin/mihomo-android-arm64-v8\\n", "")
+          path.write_text(text)
+          PY
+          if grep -n 'assets/bin/mihomo-android-arm64-v8' pubspec.yaml; then
+            echo "Mihomo must not be declared as a Flutter asset on Android"
+            exit 1
+          fi
+
       - name: Get dependencies
         run: flutter pub get
 
