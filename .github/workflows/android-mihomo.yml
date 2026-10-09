@@ -1,5 +1,9 @@
 name: Build Android APK with Mihomo
 
+concurrency:
+  group: brew-android-mihomo-${{ github.ref }}
+  cancel-in-progress: true
+
 on:
   push:
     branches: [android-mihomo-integration]
@@ -15,6 +19,16 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Install SVG converter
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y librsvg2-bin
+
+      - name: Render launcher icon
+        run: |
+          mkdir -p assets
+          rsvg-convert -w 1024 -h 1024 assets/brew_icon.svg > assets/brew_icon.png
+
       - name: Set up Java
         uses: actions/setup-java@v4
         with:
@@ -25,16 +39,68 @@ jobs:
         uses: subosito/flutter-action@v2
         with:
           channel: stable
+          cache: true
 
       - name: Generate Android project
         run: flutter create --platforms=android --project-name brew .
 
-      # flutter create generates a placeholder test that assumes the app class is MyApp.
-      # This project uses its own app entry point, so remove that untracked template test.
       - name: Remove generated placeholder test
         run: rm -f test/widget_test.dart
 
-      - name: Download and verify Mihomo for Android arm64
+      - name: Configure Android launcher icon
+        run: |
+          flutter pub add --dev flutter_launcher_icons
+          cat > flutter_launcher_icons.yaml <<'EOF'
+          flutter_launcher_icons:
+            android: true
+            image_path: "assets/brew_icon.png"
+            adaptive_icon_background: "#171717"
+            adaptive_icon_foreground: "assets/brew_icon.png"
+          EOF
+          dart run flutter_launcher_icons
+
+      - name: Configure Android manifest
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          path = Path("android/app/src/main/AndroidManifest.xml")
+          text = path.read_text()
+
+          def set_attr(tag, name, value):
+              prefix = name + '="'
+              start = tag.find(prefix)
+              if start < 0:
+                  return tag[:-1] + f' {name}="{value}">'
+              value_start = start + len(prefix)
+              value_end = tag.find('"', value_start)
+              return tag[:value_start] + value + tag[value_end:]
+
+          if "android.permission.INTERNET" not in text:
+              manifest_start = text.find("<manifest")
+              manifest_end = text.find(">", manifest_start)
+              if manifest_start < 0 or manifest_end < 0:
+                  raise SystemExit("Could not find <manifest> in AndroidManifest.xml")
+              text = (
+                  text[:manifest_end + 1]
+                  + '\n    <uses-permission android:name="android.permission.INTERNET" />'
+                  + text[manifest_end + 1:]
+              )
+
+          app_start = text.find("<application")
+          app_end = text.find(">", app_start)
+          if app_start < 0 or app_end < 0:
+              raise SystemExit("Could not find <application> in AndroidManifest.xml")
+          app = text[app_start:app_end + 1]
+          app = set_attr(app, "android:label", "brew")
+          app = set_attr(app, "android:icon", "@mipmap/ic_launcher")
+          text = text[:app_start] + app + text[app_end + 1:]
+          path.write_text(text)
+          print("manifest configured: internet permission, brew label, ic_launcher icon")
+          PY
+          grep -nE 'INTERNET|<application|android:label|android:icon' android/app/src/main/AndroidManifest.xml
+
+      - name: Download Mihomo for Android arm64
         shell: bash
         run: |
           set -euo pipefail
@@ -53,6 +119,11 @@ jobs:
       - name: Analyze Dart code
         run: flutter analyze --no-pub
 
+      - name: Verify launcher resources
+        run: |
+          find android/app/src/main/res -path '*mipmap*' -type f -print
+          test -n "$(find android/app/src/main/res -type f -name 'ic_launcher.png' -print -quit)"
+
       - name: Build arm64 APK
         run: flutter build apk --release --target-platform android-arm64
 
@@ -62,3 +133,4 @@ jobs:
           name: brew-android-arm64-mihomo-apk
           path: build/app/outputs/flutter-apk/app-release.apk
           if-no-files-found: error
+          retention-days: 90
