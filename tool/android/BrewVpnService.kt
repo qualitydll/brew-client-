@@ -103,7 +103,7 @@ class BrewVpnService : VpnService(), TunInterface {
         super.protect(fd)
     }
 
-    fun resolverProcess(protocol: Int, source: String, target: String, uid: Int): String = ""
+    override fun resolverProcess(protocol: Int, source: String, target: String, uid: Int): String = ""
 
     private fun stopTunnel() {
         try {
