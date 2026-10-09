@@ -75,7 +75,7 @@ class BrewVpnService : VpnService() {
             val setupLatch = CountDownLatch(1)
             var setupError: String? = null
             val initJson = """{"homeDir":${org.json.JSONObject.quote(homeDir)},"version":${Build.VERSION.SDK_INT}}"""
-            Clash.quickSetup(initJson, """{"selected-map":{}}""") { message ->
+            Clash.quickSetup(initJson, """{"profile":${org.json.JSONObject.quote(config.absolutePath)}}""") { message ->
                 setupError = message?.takeIf { it.isNotBlank() }
                 setupLatch.countDown()
             }
