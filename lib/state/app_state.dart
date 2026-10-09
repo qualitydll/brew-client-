@@ -372,8 +372,10 @@ class AppState extends ChangeNotifier {
     apiPort: settings.apiPort,
     secret: settings.secret,
     mode: settings.mode,
-    tun: settings.tun,
-    allowLan: settings.allowLan,
+    // Android uses the system VpnService TUN descriptor, not Mihomo's own
+    // auto-route device. Enabling Mihomo TUN here would create a second tunnel.
+    tun: Platform.isAndroid ? false : settings.tun,
+    allowLan: Platform.isAndroid ? false : settings.allowLan,
   );
 
   Future<void> connect() async {
@@ -399,6 +401,23 @@ class AppState extends ChangeNotifier {
         baseConfigFor(parseSubscription(content)),
         _options,
       );
+      if (Platform.isAndroid) {
+        // The Android VpnService supplies the TUN fd. Keep Mihomo's own TUN
+        // device disabled and ensure DNS is available for hijacked port-53 traffic.
+        config['tun'] = {'enable': false};
+        final dns = config['dns'];
+        if (dns is! Map || dns['enable'] != true) {
+          config['dns'] = {
+            'enable': true,
+            'ipv6': true,
+            'enhanced-mode': 'fake-ip',
+            'fake-ip-range': '198.18.0.1/16',
+            'fake-ip-filter': ['*.lan', '*.local', '+.msftconnecttest.com', '+.msftncsi.com'],
+            'default-nameserver': ['1.1.1.1', '8.8.8.8'],
+            'nameserver': ['https://1.1.1.1/dns-query', 'https://dns.google/dns-query'],
+          };
+        }
+      }
       final configFile = File(p.join(dataDir, 'home', 'config.yaml'));
       final api = MihomoApi(port: settings.apiPort, secret: settings.secret);
       _api = api;
