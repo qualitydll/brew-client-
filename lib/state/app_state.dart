@@ -231,7 +231,7 @@ class AppState extends ChangeNotifier {
       final body = utf8.decode(lastResponse.bodyBytes, allowMalformed: true);
       final snippet = body.length > 300 ? body.substring(0, 300) : body;
       throw Exception(
-        'Сервер вернул HTTP ${lastResponse.statusCode} при двух вариантах запроса.\\n'
+        'Сервер вернул HTTP ${lastResponse.statusCode} при двух вариантах запроса.\n'
         'Ответ: $snippet',
       );
     }
