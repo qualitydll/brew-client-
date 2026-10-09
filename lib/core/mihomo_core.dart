@@ -17,33 +17,24 @@ class MihomoCore {
   bool get isRunning => _process != null;
 
   static String get binaryName => Platform.isWindows ? 'mihomo.exe' : 'mihomo';
+  static const _nativeChannel = MethodChannel('brew/native');
 
   static Future<String?> locate({
     String? customPath,
     required String dataDir,
   }) async {
     if (Platform.isAndroid) {
-      // The Android CI build bundles the official arm64 Mihomo executable.
-      // Extract it into app-private storage so Process.start can use a file path.
-      final bundledPath = p.join(dataDir, 'core', 'mihomo');
-      final bundledFile = File(bundledPath);
+      // Android may mount app-writable data directories with noexec. The
+      // packaged native-library directory is the appropriate place for the
+      // bundled executable, exposed by MainActivity over a method channel.
       try {
-        if (!await bundledFile.exists()) {
-          final bytes = await rootBundle.load(
-            'assets/bin/mihomo-android-arm64-v8',
-          );
-          await bundledFile.parent.create(recursive: true);
-          await bundledFile.writeAsBytes(
-            bytes.buffer.asUint8List(bytes.offsetInBytes, bytes.lengthInBytes),
-            flush: true,
-          );
-        }
-        final chmod = await Process.run('chmod', ['700', bundledPath]);
-        if (chmod.exitCode == 0 && await bundledFile.exists()) {
-          return bundledPath;
+        final nativePath =
+            await _nativeChannel.invokeMethod<String>('mihomoPath');
+        if (nativePath != null && await File(nativePath).exists()) {
+          return nativePath;
         }
       } catch (_) {
-        // Continue with user-provided paths and normal binary discovery below.
+        // Fall back to regular binary discovery for older builds.
       }
     }
 
@@ -89,7 +80,7 @@ class MihomoCore {
     ]);
     if (res.exitCode == 0) return null;
     final out = '${res.stdout}\n${res.stderr}';
-    final msgs = RegExp(r'level=(?:error|fatal) msg="((?:[^"\\]|\\.)*)"')
+    final msgs = RegExp(r'level=(?:error|fatal) msg="((?:[^"\\\\]|\\\\.)*)"')
         .allMatches(out)
         .map((m) => m.group(1)!)
         .toList();
