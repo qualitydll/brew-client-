@@ -126,6 +126,39 @@ jobs:
           PY
           grep -nE 'INTERNET|<application|android:label|android:icon|extractNativeLibs' android/app/src/main/AndroidManifest.xml
 
+      - name: Enable legacy JNI library packaging for executable Mihomo
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          candidates = [Path("android/app/build.gradle.kts"), Path("android/app/build.gradle")]
+          path = next((p for p in candidates if p.exists()), None)
+          if path is None:
+              raise SystemExit("Android app Gradle build file not found")
+          text = path.read_text()
+          if "useLegacyPackaging = true" in text or "useLegacyPackaging true" in text:
+              print("legacy JNI packaging already enabled")
+          else:
+              # Insert into the android { } block, before buildTypes/defaultConfig.
+              import re
+              match = re.search(r"(?m)^([ \\t]*)buildTypes\\s*\\{", text)
+              if not match:
+                  match = re.search(r"(?m)^([ \\t]*)defaultConfig\\s*\\{", text)
+              if not match:
+                  raise SystemExit("Could not find insertion point inside Android Gradle config")
+              indent = match.group(1)
+              block = (
+                  f"{indent}packaging {{\\n"
+                  f"{indent}    jniLibs {{\\n"
+                  f"{indent}        useLegacyPackaging = true\\n"
+                  f"{indent}    }}\\n"
+                  f"{indent}}}\\n\\n"
+              )
+              text = text[:match.start()] + block + text[match.start():]
+              path.write_text(text)
+              print(f"Enabled legacy JNI packaging in {path}")
+          PY
+          grep -n -A4 -B1 'useLegacyPackaging' android/app/build.gradle* 
+
       - name: Download Mihomo into native library directory
         shell: bash
         run: |
