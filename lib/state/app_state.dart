@@ -423,6 +423,23 @@ class AppState extends ChangeNotifier {
       _api = api;
 
       if (Platform.isAndroid) {
+        // Avoid startup failure if GeoSite/GeoIP database downloads are blocked.
+        // Rules that need external geodata are skipped on Android; other rules remain.
+        final rules = config['rules'];
+        if (rules is List) {
+          final before = rules.length;
+          config['rules'] = rules.where((rule) {
+            if (rule is! String) return true;
+            final type = rule.split(',').first.trim().toUpperCase();
+            return type != 'GEOSITE' && type != 'GEOIP';
+          }).toList();
+          if ((config['rules'] as List).length != before) {
+            logs.add(LogEntry(
+              'warning',
+              'Android: правила GEOSITE/GEOIP пропущены, чтобы запуск Mihomo не зависел от загрузки GeoSite.dat/GeoIP.dat.',
+            ));
+          }
+        }
         // Android must run Mihomo in-process so it can consume the TUN fd
         // created by VpnService. A standalone executable cannot do this.
         await configFile.writeAsString(
