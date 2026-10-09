@@ -194,7 +194,7 @@ class AppState extends ChangeNotifier {
               'Accept': 'text/plain, application/yaml, application/x-yaml, application/json, */*',
             },
           )
-          .timeout(const Duration(seconds: 20));
+          .timeout(const Duration(seconds: 60));
 
       // Some subscription panels route or format responses by User-Agent.
       // Retry a 404 once as a normal Android browser before reporting failure.
@@ -209,7 +209,7 @@ class AppState extends ChangeNotifier {
                 'Accept': 'text/plain, application/yaml, application/x-yaml, application/json, */*',
               },
             )
-            .timeout(const Duration(seconds: 20));
+            .timeout(const Duration(seconds: 60));
         // Prefer a successful response, otherwise preserve the retry's result
         // because it reflects the browser-compatible request.
         res = retry;
@@ -240,7 +240,7 @@ class AppState extends ChangeNotifier {
       throw Exception('Ошибка TLS при подключении к серверу: ${e.message}');
     } on TimeoutException {
       throw Exception(
-        'Сервер не ответил за 20 секунд.\n'
+        'Сервер не ответил за 60 секунд.\n'
         'Проверьте адрес подписки и доступность сети.',
       );
     } finally {
