@@ -46,11 +46,51 @@ jobs:
           EOF
           dart run flutter_launcher_icons
 
-      - name: Set app display name
-        run: sed -i 's/android:label="brew"/android:label="Brew"/' android/app/src/main/AndroidManifest.xml
+      - name: Configure Android manifest
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+
+          path = Path("android/app/src/main/AndroidManifest.xml")
+          text = path.read_text()
+
+          # Release builds need INTERNET explicitly; Flutter tooling's debug
+          # manifest can otherwise mask a missing permission.
+          if "android.permission.INTERNET" not in text:
+              text = re.sub(
+                  r"(<manifest\\b[^>]*>)",
+                  r"\\1\\n    <uses-permission android:name=\"android.permission.INTERNET\" />",
+                  text,
+                  count=1,
+              )
+
+          # Make the application name and launcher icon explicit.
+          app_match = re.search(r"<application\\b[^>]*>", text)
+          if not app_match:
+              raise SystemExit("Could not find <application> in AndroidManifest.xml")
+          app = app_match.group(0)
+          if re.search(r"android:label=\"[^\"]*\"", app):
+              app = re.sub(r"android:label=\"[^\"]*\"", 'android:label="Brew"', app)
+          else:
+              app = app[:-1] + ' android:label="Brew">'
+          if re.search(r"android:icon=\"[^\"]*\"", app):
+              app = re.sub(r"android:icon=\"[^\"]*\"", 'android:icon="@mipmap/ic_launcher"', app)
+          else:
+              app = app[:-1] + ' android:icon="@mipmap/ic_launcher">'
+          text = text[:app_match.start()] + app + text[app_match.end():]
+          path.write_text(text)
+          print("Manifest configured: INTERNET permission, Brew label, ic_launcher icon")
+          PY
+          grep -nE 'INTERNET|<application|android:label|android:icon' android/app/src/main/AndroidManifest.xml
 
       - name: Get dependencies
         run: flutter pub get
+
+      - name: Verify launcher resources
+        run: |
+          find android/app/src/main/res -path '*mipmap*' -type f -print
+          test -n "$(find android/app/src/main/res -type f -name 'ic_launcher.png' -print -quit)"
 
       - name: Build release APK
         run: flutter build apk --release
