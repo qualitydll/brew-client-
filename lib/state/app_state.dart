@@ -183,69 +183,71 @@ class AppState extends ChangeNotifier {
   http.Client _makeHttpClient() => http.Client();
 
   Future<(String, http.Response)> _download(String url) async {
-    final client = _makeHttpClient();
-    try {
-      final uri = Uri.parse(url);
-      var res = await client
-          .get(
-            uri,
-            headers: {
-              'User-Agent': 'clash.meta/mihomo brew/0.1',
-              'Accept': 'text/plain, application/yaml, application/x-yaml, application/json, */*',
-            },
-          )
-          .timeout(const Duration(seconds: 60));
+    final uri = Uri.tryParse(url);
+    if (uri == null ||
+        (uri.scheme != 'https' && uri.scheme != 'http') ||
+        uri.host.isEmpty) {
+      throw Exception('Нужна полная ссылка подписки, начинающаяся с http:// или https://');
+    }
 
-      // Some subscription panels route or format responses by User-Agent.
-      // Retry a 404 once as a normal Android browser before reporting failure.
-      if (res.statusCode == 404) {
-        final retry = await client
+    const accept =
+        'text/plain, application/yaml, application/x-yaml, application/json, */*';
+    const userAgents = [
+      'Mozilla/5.0 (Linux; Android 16) AppleWebKit/537.36 '
+          '(KHTML, like Gecko) Chrome/130.0.0.0 Mobile Safari/537.36',
+      'clash.meta/mihomo brew/0.1',
+    ];
+    Object? lastError;
+    http.Response? lastResponse;
+
+    // Some subscription panels stall or reject clients whose User-Agent
+    // doesn't look like a normal browser. Try a browser first, then Mihomo.
+    for (final userAgent in userAgents) {
+      final client = _makeHttpClient();
+      try {
+        final res = await client
             .get(
               uri,
-              headers: {
-                'User-Agent':
-                    'Mozilla/5.0 (Linux; Android 16) AppleWebKit/537.36 '
-                    '(KHTML, like Gecko) Chrome/130.0.0.0 Mobile Safari/537.36',
-                'Accept': 'text/plain, application/yaml, application/x-yaml, application/json, */*',
-              },
+              headers: {'User-Agent': userAgent, 'Accept': accept},
             )
-            .timeout(const Duration(seconds: 60));
-        // Prefer a successful response, otherwise preserve the retry's result
-        // because it reflects the browser-compatible request.
-        res = retry;
-      }
-
-      if (res.statusCode >= 400) {
-        if (res.statusCode == 404) {
-          throw Exception(
-            'Сервер вернул 404 даже после повторного запроса с обычным браузерным User-Agent.\n'
-            'Клиент повторил запрос автоматически, но сервер всё равно не нашёл путь. '
-            'Проверьте адрес или создайте новую ссылку у провайдера. '
-            'Полный URL и токен никому не отправляйте.',
-          );
+            .timeout(const Duration(seconds: 30));
+        lastResponse = res;
+        if (res.statusCode >= 200 && res.statusCode < 300) {
+          return (utf8.decode(res.bodyBytes, allowMalformed: true), res);
         }
-        final body = utf8.decode(res.bodyBytes, allowMalformed: true);
-        final snippet = body.length > 300 ? body.substring(0, 300) : body;
-        throw Exception(
-          'Сервер вернул ${res.statusCode}\nОтвет: $snippet',
-        );
+        lastError = 'HTTP ${res.statusCode}';
+      } on TimeoutException catch (e) {
+        lastError = e;
+      } on SocketException catch (e) {
+        lastError = e;
+      } on HandshakeException catch (e) {
+        lastError = e;
+      } finally {
+        client.close();
       }
-      return (utf8.decode(res.bodyBytes, allowMalformed: true), res);
-    } on SocketException catch (e) {
-      throw Exception(
-        'Не удалось подключиться к серверу подписки: ${e.message}\n'
-        'Проверьте адрес и сеть или вставьте ссылки серверов текстом.',
-      );
-    } on HandshakeException catch (e) {
-      throw Exception('Ошибка TLS при подключении к серверу: ${e.message}');
-    } on TimeoutException {
-      throw Exception(
-        'Сервер не ответил за 60 секунд.\n'
-        'Проверьте адрес подписки и доступность сети.',
-      );
-    } finally {
-      client.close();
     }
+
+    if (lastResponse != null) {
+      final body = utf8.decode(lastResponse.bodyBytes, allowMalformed: true);
+      final snippet = body.length > 300 ? body.substring(0, 300) : body;
+      throw Exception(
+        'Сервер вернул HTTP ${lastResponse.statusCode} при двух вариантах запроса.\\n'
+        'Ответ: $snippet',
+      );
+    }
+    if (lastError is TimeoutException) {
+      throw Exception(
+        'Подключение к серверу не завершилось за 30 секунд даже после повторного запроса с другим User-Agent. '
+        'Проверьте, доступен ли домен из сети телефона; сама ссылка может открываться в браузере через другую сеть или VPN.',
+      );
+    }
+    if (lastError is HandshakeException) {
+      throw Exception('Ошибка TLS при подключении к серверу: $lastError');
+    }
+    if (lastError is SocketException) {
+      throw Exception('Не удалось подключиться к серверу подписки: $lastError');
+    }
+    throw Exception('Не удалось получить ответ от сервера подписки.');
   }
 
   String? _titleFromHeaders(http.Response res, String url) {
