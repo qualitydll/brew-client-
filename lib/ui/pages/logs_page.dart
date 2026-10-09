@@ -108,39 +108,46 @@ class _LogLine extends StatelessWidget {
     String two(int n) => n.toString().padLeft(2, '0');
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 3),
-      child: Row(
+      child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            '${two(time.hour)}:${two(time.minute)}:${two(time.second)}',
-            style: TextStyle(
-              fontFamily: 'monospace',
-              fontSize: 12,
-              color: scheme.outline,
-            ),
-          ),
-          const SizedBox(width: 10),
-          Container(
-            width: 64,
-            padding: const EdgeInsets.symmetric(vertical: 1),
-            alignment: Alignment.center,
-            decoration: BoxDecoration(
-              color: color.withValues(alpha: 0.14),
-              borderRadius: BorderRadius.circular(6),
-            ),
-            child: Text(
-              entry.level.toUpperCase(),
-              style: TextStyle(
-                fontSize: 10,
-                fontWeight: FontWeight.w700,
-                color: color,
+          Row(
+            children: [
+              Text(
+                '${two(time.hour)}:${two(time.minute)}:${two(time.second)}',
+                style: TextStyle(
+                  fontFamily: 'monospace',
+                  fontSize: 12,
+                  color: scheme.outline,
+                ),
               ),
-            ),
+              const SizedBox(width: 10),
+              Container(
+                width: 64,
+                padding: const EdgeInsets.symmetric(vertical: 1),
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  color: color.withValues(alpha: 0.14),
+                  borderRadius: BorderRadius.circular(6),
+                ),
+                child: Text(
+                  entry.level.toUpperCase(),
+                  style: TextStyle(
+                    fontSize: 10,
+                    fontWeight: FontWeight.w700,
+                    color: color,
+                  ),
+                ),
+              ),
+            ],
           ),
-          const SizedBox(width: 10),
-          Expanded(
+          const SizedBox(height: 4),
+          SizedBox(
+            width: double.infinity,
             child: SelectableText(
               entry.message,
+              softWrap: true,
+              textWidthBasis: TextWidthBasis.parent,
               style: const TextStyle(
                 fontFamily: 'monospace',
                 fontFamilyFallback: ['Consolas'],
