@@ -64,6 +64,8 @@ flutter:
   # included with your application, so that you can use the icons in
   # the material Icons class.
   uses-material-design: true
+  assets:
+    - assets/bin/mihomo-android-arm64-v8
 
   # ВРЕМЕННО ОТКЛЮЧЕНО, ЧТОБЫ СБОРКА ПРОШЛА УСПЕШНО.
   # Чтобы вернуть шрифты, скачай файлы .ttf, положи их в папку assets/fonts/
