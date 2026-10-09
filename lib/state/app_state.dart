@@ -189,10 +189,10 @@ class AppState extends ChangeNotifier {
   http.Client _makeHttpClient({bool allowSelfSigned = false}) {
     if (Platform.isWindows) {
       final ctx = SecurityContext(withTrustedRoots: true);
-      final inner = HttpClient(context: ctx)
-        ..badCertificateCallback =
-            (X509Certificate cert, String host, int port) => allowSelfSigned
-        ..connectionTimeout = const Duration(seconds: 15);
+      final inner = HttpClient(context: ctx);
+      inner.badCertificateCallback =
+          (X509Certificate cert, String host, int port) => allowSelfSigned;
+      inner.connectionTimeout = const Duration(seconds: 15);
       return IOClient(inner);
     }
     return http.Client();
