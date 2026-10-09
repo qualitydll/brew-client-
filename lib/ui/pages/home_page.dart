@@ -20,6 +20,7 @@ class HomePage extends StatelessWidget {
     final cards = [
       _ServerCard(state: state),
       _SpeedCard(state: state),
+      if (state.isConnected) _ConnectionsCard(state: state),
       _ProfileCard(state: state),
     ];
     if (wide) {
@@ -286,6 +287,7 @@ class _ServerCard extends StatefulWidget {
 
 class _ServerCardState extends State<_ServerCard> {
   bool _finding = false;
+  bool _checking = false;
 
   Future<void> _best() async {
     setState(() => _finding = true);
@@ -298,6 +300,14 @@ class _ServerCardState extends State<_ServerCard> {
           ? 'Не удалось найти рабочий сервер'
           : 'Выбран самый быстрый: $best',
     );
+  }
+
+  Future<void> _checkReachability() async {
+    setState(() => _checking = true);
+    final message = await widget.state.checkProfileReachability();
+    if (!mounted) return;
+    setState(() => _checking = false);
+    showSnack(context, message);
   }
 
   @override
@@ -365,8 +375,19 @@ class _ServerCardState extends State<_ServerCard> {
               TextButton(
                 onPressed: state.isConnected
                     ? () => Shell.go(context, 1)
-                    : null,
-                child: const Text('Все серверы'),
+                    : state.isBusy ||
+                          state.profiles.isEmpty ||
+                          _checking ||
+                          state.probingProfile
+                    ? null
+                    : _checkReachability,
+                child: Text(
+                  state.isConnected
+                      ? 'Все серверы'
+                      : _checking || state.probingProfile
+                      ? 'Проверяем…'
+                      : 'Проверить порты',
+                ),
               ),
             ],
           ),
@@ -418,6 +439,108 @@ class _SpeedCard extends StatelessWidget {
             ],
           );
         },
+      ),
+    );
+  }
+}
+
+class _ConnectionsCard extends StatelessWidget {
+  const _ConnectionsCard({required this.state});
+  final AppState state;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final textTheme = Theme.of(context).textTheme;
+    final connections = state.activeConnections.take(5).toList();
+    return GlassCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _CardTitle(
+            Icons.alt_route_rounded,
+            'Активные соединения · ${state.activeConnections.length}',
+            trailing: IconButton(
+              tooltip: 'Обновить соединения',
+              onPressed: state.refreshConnections,
+              icon: const Icon(Icons.refresh_rounded),
+            ),
+          ),
+          if (connections.isEmpty)
+            Padding(
+              padding: const EdgeInsets.only(top: 8),
+              child: Text(
+                state.connectionsError == null
+                    ? 'Пока нет активных соединений'
+                    : 'Ошибка Mihomo API: ${state.connectionsError}',
+                maxLines: 3,
+                overflow: TextOverflow.ellipsis,
+                style: textTheme.bodySmall?.copyWith(
+                  color: scheme.onSurfaceVariant,
+                ),
+              ),
+            )
+          else
+            for (final connection in connections)
+              Padding(
+                padding: const EdgeInsets.only(top: 10),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Icon(
+                      connection.network == 'udp'
+                          ? Icons.swap_vert_rounded
+                          : Icons.compare_arrows_rounded,
+                      size: 18,
+                      color: scheme.primary,
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            connection.port.isEmpty
+                                ? connection.host
+                                : '${connection.host}:${connection.port}',
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: textTheme.bodyMedium?.copyWith(
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                          Text(
+                            [
+                              if (connection.rule.isNotEmpty)
+                                '${connection.rule}${connection.rulePayload.isEmpty ? '' : ' · ${connection.rulePayload}'}',
+                              if (connection.chains.isNotEmpty)
+                                connection.chains.join(' → ')
+                              else
+                                'Маршрут не указан',
+                            ].join('  ·  '),
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                            style: textTheme.bodySmall?.copyWith(
+                              color: scheme.onSurfaceVariant,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+          if (connections.isNotEmpty && state.activeConnections.length > 5)
+            Padding(
+              padding: const EdgeInsets.only(top: 8),
+              child: Text(
+                'Показаны первые 5 из ${state.activeConnections.length}',
+                style: textTheme.bodySmall?.copyWith(
+                  color: scheme.onSurfaceVariant,
+                ),
+              ),
+            ),
+        ],
       ),
     );
   }
@@ -507,9 +630,19 @@ class _ProfileCard extends StatelessWidget {
                 'обновлено ${timeAgo(pr.updatedAt)}',
                 if (pr.expire != null)
                   'до ${pr.expire!.day}.${pr.expire!.month}.${pr.expire!.year}',
+                if (!pr.hasExpiryInfo) 'срок не передан',
+                if (!pr.hasTrafficInfo) 'лимит не передан',
               ].join(' · '),
               style: t.bodySmall?.copyWith(color: scheme.onSurfaceVariant),
             ),
+            if (_subscriptionWarning(pr) != null)
+              Padding(
+                padding: const EdgeInsets.only(top: 8),
+                child: Text(
+                  _subscriptionWarning(pr)!,
+                  style: t.bodySmall?.copyWith(color: scheme.error),
+                ),
+              ),
             if (pr.usage != null) ...[
               const SizedBox(height: 12),
               TweenAnimationBuilder<double>(
@@ -528,9 +661,51 @@ class _ProfileCard extends StatelessWidget {
                 style: t.bodySmall,
               ),
             ],
+            if (pr.isRemote)
+              Align(
+                alignment: Alignment.centerRight,
+                child: TextButton.icon(
+                  onPressed: state.busyProfile
+                      ? null
+                      : () async {
+                          try {
+                            await state.updateProfile(pr);
+                            if (context.mounted) {
+                              showSnack(context, 'Подписка обновлена');
+                            }
+                          } catch (e) {
+                            if (context.mounted) {
+                              showSnack(context, 'Не удалось обновить: $e');
+                            }
+                          }
+                        },
+                  icon: state.busyProfile
+                      ? const SizedBox(
+                          width: 16,
+                          height: 16,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const Icon(Icons.refresh_rounded),
+                  label: const Text('Обновить'),
+                ),
+              ),
           ],
         ],
       ),
     );
+  }
+
+  String? _subscriptionWarning(Profile profile) {
+    final expire = profile.expire;
+    if (expire != null && expire.isBefore(DateTime.now())) {
+      return 'Срок подписки истёк';
+    }
+    if (expire != null && expire.difference(DateTime.now()).inDays < 7) {
+      return 'Срок подписки скоро истечёт';
+    }
+    if (profile.total > 0 && profile.usage != null && profile.usage! >= 0.9) {
+      return 'Использовано не менее 90% доступного трафика';
+    }
+    return null;
   }
 }

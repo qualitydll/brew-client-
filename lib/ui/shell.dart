@@ -166,9 +166,15 @@ class _Logo extends StatelessWidget {
           end: Alignment.bottomRight,
         ),
       ),
-      child: Icon(
-        Icons.local_cafe_rounded,
-        color: on ? scheme.onPrimary : scheme.onPrimaryContainer,
+      child: Padding(
+        padding: const EdgeInsets.all(4),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(12),
+          child: Image.asset(
+            'assets/images/brew_logo.png',
+            fit: BoxFit.cover,
+          ),
+        ),
       ),
     );
   }

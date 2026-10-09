@@ -12,8 +12,11 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../core/android_vpn.dart';
 import '../core/config_builder.dart';
 import '../core/link_parser.dart';
+import '../core/mihomo_config_path.dart';
 import '../core/mihomo_api.dart';
 import '../core/mihomo_core.dart';
+import '../core/proxy_probe.dart';
+import '../core/routing_rules.dart';
 import '../core/system_proxy.dart';
 import 'models.dart';
 import 'settings.dart';
@@ -95,10 +98,75 @@ class AppState extends ChangeNotifier {
   final Map<String, int> delays = {};
   final Set<String> testing = {};
   bool busyProfile = false;
+  bool probingProfile = false;
+  String? reachabilityMessage;
+  Map<String, bool> reachability = {};
+  List<ProxyConnection> activeConnections = const [];
+  String? connectionsError;
 
   MihomoApi? _api;
   StreamSubscription<Map<String, dynamic>>? _trafficSub;
   StreamSubscription<Map<String, dynamic>>? _logSub;
+  Timer? _connectionsTimer;
+  bool _refreshingConnections = false;
+
+  String _serverKey(String name) =>
+      '${activeProfile?.id ?? 'default'}::$name';
+
+  bool isFavoriteServer(String name) =>
+      settings.favoriteServers.contains(_serverKey(name));
+
+  void toggleFavoriteServer(String name) {
+    final favorites = settings.favoriteServers;
+    final key = _serverKey(name);
+    if (favorites.contains(key)) {
+      favorites.remove(key);
+    } else {
+      favorites.add(key);
+    }
+    settings.favoriteServers = favorites;
+    notifyListeners();
+  }
+
+  List<String> get recentServerNames {
+    final prefix = '${activeProfile?.id ?? 'default'}::';
+    return [
+      for (final key in settings.recentServers)
+        if (key.startsWith(prefix)) key.substring(prefix.length),
+    ];
+  }
+
+  void recordRecentServer(String name) {
+    final key = _serverKey(name);
+    final recent = settings.recentServers
+      ..remove(key)
+      ..insert(0, key);
+    if (recent.length > 30) recent.removeRange(30, recent.length);
+    settings.recentServers = recent;
+  }
+
+  Future<List<String>> routingActionsForActiveProfile() async {
+    final profile = activeProfile;
+    if (profile == null) return const ['DIRECT', 'REJECT'];
+    final content = await _profileFile(profile.id).readAsString();
+    return routingActionsFor(parseSubscription(content));
+  }
+
+  Future<void> addDomainRule(String rule) async {
+    if (!settings.domainRules.contains(rule)) {
+      settings.domainRules = [...settings.domainRules, rule];
+      notifyListeners();
+      if (isConnected) await reconnect();
+    }
+  }
+
+  Future<void> removeDomainRule(String rule) async {
+    settings.domainRules = settings.domainRules
+        .where((r) => r != rule)
+        .toList();
+    notifyListeners();
+    if (isConnected) await reconnect();
+  }
 
   bool get isConnected => status == ConnStatus.connected;
   bool get isBusy =>
@@ -345,12 +413,55 @@ class AppState extends ChangeNotifier {
     tun: !Platform.isAndroid && settings.tun,
     allowLan: settings.allowLan,
     externalTun: Platform.isAndroid,
-    userRules: settings.userRules
-        .split('\n')
-        .map((rule) => rule.trim())
-        .where((rule) => rule.isNotEmpty)
-        .toList(),
+    userRules: [
+      ...settings.domainRules,
+      ...settings.userRules
+          .split('\n')
+          .map((rule) => rule.trim())
+          .where((rule) => rule.isNotEmpty),
+    ],
   );
+
+  Future<String> checkProfileReachability() async {
+    if (isConnected || isBusy) {
+      return 'Отключитесь перед проверкой серверов.';
+    }
+    if (probingProfile) return 'Проверка уже выполняется.';
+    final profile = activeProfile;
+    if (profile == null) return 'Сначала добавьте подписку.';
+
+    probingProfile = true;
+    reachabilityMessage = null;
+    reachability = {};
+    notifyListeners();
+    try {
+      final content = await _profileFile(profile.id).readAsString();
+      final endpoints = proxyEndpoints(parseSubscription(content));
+      if (endpoints.isEmpty) {
+        reachabilityMessage =
+            'В профиле нет встроенных адресов узлов для проверки. '
+            'Профили только с proxy-providers проверяйте после запуска Mihomo.';
+        return reachabilityMessage!;
+      }
+      final results = await probeProxyEndpoints(endpoints);
+      reachability = {
+        for (final result in results)
+          result.endpoint.name: result.isReachable,
+      };
+      final reachable = results.where((result) => result.isReachable).length;
+      reachabilityMessage =
+          'TCP-порт доступен: $reachable из ${results.length}. '
+          'Это проверка порта, не проверка VPN-протокола; UDP-узлы могут '
+          'быть доступны, даже если TCP-проверка не прошла.';
+      return reachabilityMessage!;
+    } catch (e) {
+      reachabilityMessage = 'Не удалось проверить серверы: $e';
+      return reachabilityMessage!;
+    } finally {
+      probingProfile = false;
+      notifyListeners();
+    }
+  }
 
   Future<void> connect() async {
     final profile = activeProfile;
@@ -376,7 +487,7 @@ class AppState extends ChangeNotifier {
         baseConfigFor(parseSubscription(content)),
         _options,
       );
-      final configFile = File(p.join(dataDir, 'home', 'config.yaml'));
+      final configFile = await prepareMihomoConfigFile(dataDir);
       skipped = await _writeValidConfig(config, configFile);
       for (final s in skipped) {
         logs.add(LogEntry('warning', 'Сервер пропущен: $s'));
@@ -424,6 +535,15 @@ class AppState extends ChangeNotifier {
       }
       _api?.close();
       _api = null;
+      _trafficSub?.cancel();
+      _trafficSub = null;
+      _logSub?.cancel();
+      _logSub = null;
+      _connectionsTimer?.cancel();
+      _connectionsTimer = null;
+      _refreshingConnections = false;
+      activeConnections = const [];
+      connectionsError = null;
       status = ConnStatus.disconnected;
       error = connectionError.toString();
       logs.add(LogEntry('error', connectionError.toString()));
@@ -494,6 +614,10 @@ class AppState extends ChangeNotifier {
   void _afterStopped() {
     _trafficSub?.cancel();
     _logSub?.cancel();
+    _connectionsTimer?.cancel();
+    _connectionsTimer = null;
+    activeConnections = const [];
+    connectionsError = null;
     _trafficSub = null;
     _logSub = null;
     _api?.close();
@@ -557,6 +681,30 @@ class AppState extends ChangeNotifier {
         ),
       );
     }, onError: (_) {});
+    _connectionsTimer?.cancel();
+    unawaited(refreshConnections());
+    _connectionsTimer = Timer.periodic(
+      const Duration(seconds: 3),
+      (_) => unawaited(refreshConnections()),
+    );
+  }
+
+  Future<void> refreshConnections() async {
+    final api = _api;
+    if (api == null || _refreshingConnections) return;
+    _refreshingConnections = true;
+    try {
+      final raw = await api.connections();
+      if (identical(_api, api)) {
+        activeConnections = raw.map(ProxyConnection.fromJson).toList();
+        connectionsError = null;
+      }
+    } catch (e) {
+      if (identical(_api, api)) connectionsError = e.toString();
+    } finally {
+      _refreshingConnections = false;
+      notifyListeners();
+    }
   }
 
   void _onCoreLine(String line) {
@@ -634,6 +782,7 @@ class AppState extends ChangeNotifier {
     final api = _api;
     if (api == null) return;
     await api.select(group, name);
+    recordRecentServer(name);
     await api.closeConnections();
     await refreshProxies();
   }

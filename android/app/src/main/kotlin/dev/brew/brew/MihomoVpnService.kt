@@ -86,13 +86,20 @@ class MihomoVpnService : VpnService() {
     private fun startMihomo(configPath: String) {
         MihomoRuntime.load(this)
 
-        val homeDir = File(configPath).parentFile
+        val configFile = File(configPath).canonicalFile
+        check(configFile.isFile && configFile.canRead()) {
+            "Mihomo config is missing or unreadable: ${configFile.absolutePath}"
+        }
+        check(configFile.name == CONFIG_FILE_NAME) {
+            "Mihomo expects $CONFIG_FILE_NAME, got ${configFile.name}."
+        }
+        val homeDir = configFile.parentFile
             ?: error("Mihomo config has no parent directory.")
         val initParams = JSONObject()
-            .put("homeDir", homeDir.absolutePath)
+            .put("home-dir", homeDir.absolutePath)
             .put("version", Build.VERSION.SDK_INT)
             .toString()
-        val setupParams = JSONObject().put("selectedMap", JSONObject()).toString()
+        val setupParams = JSONObject().put("selected-map", JSONObject()).toString()
         val ready = CountDownLatch(1)
         var setupError: String? = null
         Clash.quickSetup(initParams, setupParams) { message ->
@@ -102,7 +109,9 @@ class MihomoVpnService : VpnService() {
         check(ready.await(30, TimeUnit.SECONDS)) {
             "Mihomo did not finish loading the profile within 30 seconds."
         }
-        check(setupError == null) { "Mihomo rejected the profile: $setupError" }
+        check(setupError == null) {
+            "Mihomo rejected the profile at ${configFile.absolutePath}: $setupError"
+        }
 
         val tun = Builder()
             .setSession(packageManager.getApplicationLabel(applicationInfo).toString())
@@ -202,6 +211,7 @@ class MihomoVpnService : VpnService() {
 
         private const val NOTIFICATION_CHANNEL = "brew_vpn"
         private const val NOTIFICATION_ID = 1
+        private const val CONFIG_FILE_NAME = "config.yaml"
         private const val TUN_MTU = 1400
         private const val IPV4_ADDRESS = "172.19.0.1"
         private const val IPV4_DNS = "172.19.0.2"

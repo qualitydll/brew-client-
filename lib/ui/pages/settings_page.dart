@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../../core/system_proxy.dart';
+import '../../core/routing_rules.dart';
 import '../../state/app_state.dart';
 import '../theme.dart';
 import '../widgets/common.dart';
@@ -148,18 +149,58 @@ class SettingsPage extends StatelessWidget {
           ),
           ListTile(
             contentPadding: EdgeInsets.zero,
-            title: const Text('Правила маршрутизации'),
+            title: const Text('Маршрутизация доменов'),
+            subtitle: Text(
+              s.domainRules.isEmpty
+                  ? 'Сайт → через группу, напрямую или блокировать'
+                  : '${s.domainRules.length} правил — раньше правил подписки',
+            ),
+            trailing: const Icon(Icons.add_rounded),
+            onTap: () async {
+              try {
+                final actions = await state.routingActionsForActiveProfile();
+                if (!context.mounted) return;
+                await showDialog<void>(
+                  context: context,
+                  builder: (_) => _DomainRuleDialog(
+                    actions: actions,
+                    onSave: state.addDomainRule,
+                  ),
+                );
+              } catch (e) {
+                if (context.mounted) {
+                  showSnack(context, 'Не удалось открыть правила: $e');
+                }
+              }
+            },
+          ),
+          if (s.domainRules.isNotEmpty)
+            for (final rule in s.domainRules)
+              ListTile(
+                dense: true,
+                contentPadding: const EdgeInsets.only(left: 12),
+                leading: const Icon(Icons.language_rounded),
+                title: Text(rule),
+                trailing: IconButton(
+                  tooltip: 'Удалить правило',
+                  onPressed: () => state.removeDomainRule(rule),
+                  icon: const Icon(Icons.close_rounded),
+                ),
+              ),
+          ListTile(
+            contentPadding: EdgeInsets.zero,
+            title: const Text('Правила вручную · Advanced'),
             subtitle: Text(
               s.userRules.trim().isEmpty
-                  ? 'Собственные правила отключены'
+                  ? 'Дополнительные правила Mihomo отключены'
                   : '${s.userRules.split('\n').where((rule) => rule.trim().isNotEmpty).length} '
-                        'правил — применяются раньше правил подписки',
+                        'строк — применяются раньше правил подписки',
             ),
             trailing: const Icon(Icons.edit_rounded),
             onTap: () async {
               final rules = await _promptMultiline(
                 context,
-                'Правила маршрутизации',
+                'Расширенные правила Mihomo',
                 s.userRules,
               );
               if (rules != null) await state.setUserRules(rules);
@@ -236,6 +277,139 @@ class SettingsPage extends StatelessWidget {
     );
   }
 }
+
+class _DomainRuleDialog extends StatefulWidget {
+  const _DomainRuleDialog({
+    required this.actions,
+    required this.onSave,
+  });
+
+  final List<String> actions;
+  final Future<void> Function(String rule) onSave;
+
+  @override
+  State<_DomainRuleDialog> createState() => _DomainRuleDialogState();
+}
+
+class _DomainRuleDialogState extends State<_DomainRuleDialog> {
+  final _domain = TextEditingController();
+  late String _action = widget.actions.contains('PROXY')
+      ? 'PROXY'
+      : widget.actions.first;
+  bool _includeSubdomains = true;
+  String? _error;
+  bool _saving = false;
+
+  @override
+  void dispose() {
+    _domain.dispose();
+    super.dispose();
+  }
+
+  Future<void> _save() async {
+    setState(() {
+      _error = null;
+      _saving = true;
+    });
+    try {
+      final rule = normalizeDomainRule(
+        _domain.text,
+        includeSubdomains: _includeSubdomains,
+        action: _action,
+        allowedActions: widget.actions,
+      );
+      await widget.onSave(rule);
+      if (mounted) Navigator.pop(context);
+    } on FormatException catch (e) {
+      setState(() => _error = e.message.toString());
+    } on ArgumentError catch (e) {
+      setState(() => _error = e.message.toString());
+    } finally {
+      if (mounted) setState(() => _saving = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return AlertDialog(
+      title: const Text('Маршрутизация сайта'),
+      content: SizedBox(
+        width: 440,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            TextField(
+              controller: _domain,
+              autofocus: true,
+              keyboardType: TextInputType.url,
+              decoration: const InputDecoration(
+                labelText: 'Домен',
+                hintText: 'example.com',
+                helperText: 'Без https://, пути и параметров',
+                border: OutlineInputBorder(),
+              ),
+              onSubmitted: (_) => _save(),
+            ),
+            const SizedBox(height: 12),
+            CheckboxListTile(
+              contentPadding: EdgeInsets.zero,
+              value: _includeSubdomains,
+              onChanged: (value) =>
+                  setState(() => _includeSubdomains = value ?? false),
+              title: const Text('Включая поддомены'),
+              subtitle: const Text('Например, api.example.com'),
+              controlAffinity: ListTileControlAffinity.leading,
+            ),
+            const SizedBox(height: 8),
+            DropdownButtonFormField<String>(
+              value: _action,
+              decoration: const InputDecoration(
+                labelText: 'Действие',
+                border: OutlineInputBorder(),
+              ),
+              items: [
+                for (final action in widget.actions)
+                  DropdownMenuItem(value: action, child: Text(actionLabel(action))),
+              ],
+              onChanged: (value) {
+                if (value != null) setState(() => _action = value);
+              },
+            ),
+            if (_error != null)
+              Padding(
+                padding: const EdgeInsets.only(top: 12),
+                child: Text(_error!, style: TextStyle(color: scheme.error)),
+              ),
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: _saving ? null : () => Navigator.pop(context),
+          child: const Text('Отмена'),
+        ),
+        FilledButton(
+          onPressed: _saving ? null : _save,
+          child: _saving
+              ? const SizedBox(
+                  width: 18,
+                  height: 18,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                )
+              : const Text('Добавить'),
+        ),
+      ],
+    );
+  }
+}
+
+String actionLabel(String action) => switch (action) {
+  'DIRECT' => 'Напрямую',
+  'REJECT' => 'Блокировать',
+  _ => 'Через $action',
+};
 
 Future<String?> _prompt(BuildContext context, String title, String initial) {
   final c = TextEditingController(text: initial);

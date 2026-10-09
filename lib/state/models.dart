@@ -11,6 +11,8 @@ class Profile {
     this.total = 0,
     this.expire,
     this.proxyCount = 0,
+    this.hasTrafficInfo = false,
+    this.hasExpiryInfo = false,
   });
 
   final String id;
@@ -22,6 +24,8 @@ class Profile {
   int total;
   DateTime? expire;
   int proxyCount;
+  bool hasTrafficInfo;
+  bool hasExpiryInfo;
 
   bool get isRemote => url != null;
   int get used => upload + download;
@@ -37,6 +41,8 @@ class Profile {
     'total': total,
     'expire': expire?.toIso8601String(),
     'proxyCount': proxyCount,
+    'hasTrafficInfo': hasTrafficInfo,
+    'hasExpiryInfo': hasExpiryInfo,
   };
 
   factory Profile.fromJson(Map<String, dynamic> j) => Profile(
@@ -50,10 +56,16 @@ class Profile {
     total: (j['total'] as num?)?.toInt() ?? 0,
     expire: DateTime.tryParse(j['expire'] as String? ?? ''),
     proxyCount: (j['proxyCount'] as num?)?.toInt() ?? 0,
+    hasTrafficInfo:
+        j['hasTrafficInfo'] as bool? ??
+        ((j['total'] as num?)?.toInt() ?? 0) > 0,
+    hasExpiryInfo:
+        (j['hasExpiryInfo'] as bool?) ?? j['expire'] != null,
   );
 
   void applyUserInfo(String? header) {
     if (header == null) return;
+    var hasTraffic = false;
     for (final part in header.split(';')) {
       final kv = part.trim().split('=');
       if (kv.length != 2) continue;
@@ -61,14 +73,19 @@ class Profile {
       switch (kv[0].trim()) {
         case 'upload':
           upload = v;
+          hasTraffic = true;
         case 'download':
           download = v;
+          hasTraffic = true;
         case 'total':
           total = v;
+          hasTraffic = true;
         case 'expire':
           expire = v > 0 ? DateTime.fromMillisecondsSinceEpoch(v * 1000) : null;
+          hasExpiryInfo = true;
       }
     }
+    hasTrafficInfo = hasTraffic || hasTrafficInfo;
   }
 }
 
@@ -110,6 +127,47 @@ class ProxyNode {
       now: j['now']?.toString(),
       all: (j['all'] as List?)?.map((e) => e.toString()).toList() ?? const [],
       history: last,
+    );
+  }
+}
+
+class ProxyConnection {
+  const ProxyConnection({
+    required this.host,
+    required this.port,
+    required this.rule,
+    required this.rulePayload,
+    required this.chains,
+    required this.network,
+  });
+
+  final String host;
+  final String port;
+  final String rule;
+  final String rulePayload;
+  final List<String> chains;
+  final String network;
+
+  factory ProxyConnection.fromJson(Map<String, dynamic> json) {
+    final metadata = json['metadata'] is Map
+        ? (json['metadata'] as Map).cast<String, dynamic>()
+        : const <String, dynamic>{};
+    final destinationIp = metadata['destinationIP']?.toString() ?? '';
+    return ProxyConnection(
+      host: [
+        metadata['host']?.toString(),
+        if (destinationIp.isNotEmpty) destinationIp,
+      ].firstWhere(
+        (value) => value != null && value.isNotEmpty,
+        orElse: () => '—',
+      )!,
+      port: metadata['destinationPort']?.toString() ?? '',
+      rule: json['rule']?.toString() ?? '',
+      rulePayload: json['rulePayload']?.toString() ?? '',
+      chains:
+          (json['chains'] as List?)?.map((value) => value.toString()).toList() ??
+          const [],
+      network: metadata['network']?.toString() ?? '',
     );
   }
 }

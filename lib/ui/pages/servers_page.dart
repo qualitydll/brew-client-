@@ -77,7 +77,7 @@ class _NotConnected extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final state = AppScope.read(context);
+    final state = AppScope.of(context);
     final scheme = Theme.of(context).colorScheme;
     return Center(
       child: StaggeredEntrance(
@@ -109,10 +109,53 @@ class _NotConnected extends StatelessWidget {
               style: Theme.of(context).textTheme.titleMedium,
             ),
             const SizedBox(height: 16),
-            FilledButton(
-              onPressed: state.profiles.isEmpty ? null : state.connect,
-              child: const Text('Подключиться'),
+            Wrap(
+              alignment: WrapAlignment.center,
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                OutlinedButton.icon(
+                  onPressed: state.profiles.isEmpty || state.probingProfile
+                      ? null
+                      : () async {
+                          final message =
+                              await state.checkProfileReachability();
+                          if (context.mounted) showSnack(context, message);
+                        },
+                  icon: state.probingProfile
+                      ? const SizedBox(
+                          width: 18,
+                          height: 18,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const Icon(Icons.network_check_rounded),
+                  label: Text(
+                    state.probingProfile
+                        ? 'Проверяем порты…'
+                        : 'Проверить доступность',
+                  ),
+                ),
+                FilledButton(
+                  onPressed: state.profiles.isEmpty || state.isBusy
+                      ? null
+                      : state.connect,
+                  child: const Text('Подключиться'),
+                ),
+              ],
             ),
+            if (state.reachabilityMessage != null) ...[
+              const SizedBox(height: 12),
+              SizedBox(
+                width: 420,
+                child: Text(
+                  state.reachabilityMessage!,
+                  textAlign: TextAlign.center,
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: scheme.onSurfaceVariant,
+                  ),
+                ),
+              ),
+            ],
           ],
         ),
       ),
@@ -127,7 +170,19 @@ class _Grid extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final members = group.all;
+    final recent = state.recentServerNames;
+    final members = [...group.all]
+      ..sort((a, b) {
+        final favoriteOrder =
+            (state.isFavoriteServer(b) ? 1 : 0) -
+            (state.isFavoriteServer(a) ? 1 : 0);
+        if (favoriteOrder != 0) return favoriteOrder;
+        final aRecent = recent.indexOf(a);
+        final bRecent = recent.indexOf(b);
+        final aRank = aRecent < 0 ? recent.length : aRecent;
+        final bRank = bRecent < 0 ? recent.length : bRecent;
+        return aRank.compareTo(bRank);
+      });
     return GridView.builder(
       key: PageStorageKey(group.name),
       padding: const EdgeInsets.fromLTRB(32, 4, 32, 32),
@@ -149,12 +204,15 @@ class _Grid extends StatelessWidget {
             type: node?.type ?? '',
             isGroup: node?.isGroup ?? false,
             selected: group.now == name,
+            favorite: state.isFavoriteServer(name),
+            recent: recent.contains(name),
             delay: state.delays[name],
             testing: state.testing.contains(name),
             onTap: group.isSelectable
                 ? () => state.select(group.name, name)
                 : null,
             onPing: () => state.testDelay(name),
+            onToggleFavorite: () => state.toggleFavoriteServer(name),
           ),
         );
       },
@@ -168,20 +226,26 @@ class _ServerTile extends StatefulWidget {
     required this.type,
     required this.isGroup,
     required this.selected,
+    required this.favorite,
+    required this.recent,
     required this.delay,
     required this.testing,
     required this.onTap,
     required this.onPing,
+    required this.onToggleFavorite,
   });
 
   final String name;
   final String type;
   final bool isGroup;
   final bool selected;
+  final bool favorite;
+  final bool recent;
   final int? delay;
   final bool testing;
   final VoidCallback? onTap;
   final VoidCallback onPing;
+  final VoidCallback onToggleFavorite;
 
   @override
   State<_ServerTile> createState() => _ServerTileState();
@@ -292,6 +356,29 @@ class _ServerTileState extends State<_ServerTile> {
                 GestureDetector(
                   onTap: widget.onPing,
                   child: PingChip(delay: widget.delay, testing: widget.testing),
+                ),
+              if (!widget.isGroup)
+                if (widget.recent && !widget.favorite)
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 8),
+                    child: Icon(
+                      Icons.history_rounded,
+                      size: 18,
+                      color: scheme.outline,
+                    ),
+                  ),
+              if (!widget.isGroup)
+                IconButton(
+                  tooltip: widget.favorite
+                      ? 'Убрать из избранного'
+                      : 'Добавить в избранное',
+                  onPressed: widget.onToggleFavorite,
+                  icon: Icon(
+                    widget.favorite
+                        ? Icons.star_rounded
+                        : Icons.star_outline_rounded,
+                    color: widget.favorite ? scheme.primary : scheme.outline,
+                  ),
                 ),
             ],
           ),

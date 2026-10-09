@@ -50,6 +50,18 @@ class Settings {
   String get userRules => _prefs.getString('userRules') ?? '';
   set userRules(String v) => _prefs.setString('userRules', v);
 
+  List<String> get domainRules => _prefs.getStringList('domainRules') ?? [];
+  set domainRules(List<String> v) => _prefs.setStringList('domainRules', v);
+
+  List<String> get favoriteServers =>
+      _prefs.getStringList('favoriteServers') ?? [];
+  set favoriteServers(List<String> v) =>
+      _prefs.setStringList('favoriteServers', v);
+
+  List<String> get recentServers =>
+      _prefs.getStringList('recentServers') ?? [];
+  set recentServers(List<String> v) => _prefs.setStringList('recentServers', v);
+
   bool get tun => _prefs.getBool('tun') ?? false;
   set tun(bool v) => _prefs.setBool('tun', v);
 

@@ -49,6 +49,18 @@ class MihomoApi {
     return (j['proxies'] as Map).cast<String, dynamic>();
   }
 
+  Future<List<Map<String, dynamic>>> connections() async {
+    final j = await _getJson('/connections');
+    final connections = j['connections'];
+    if (connections is! List) {
+      throw const FormatException('Mihomo /connections response is invalid.');
+    }
+    return [
+      for (final connection in connections)
+        if (connection is Map) connection.cast<String, dynamic>(),
+    ];
+  }
+
   Future<void> select(String group, String name) async {
     final res = await _client.put(
       _uri('/proxies/${Uri.encodeComponent(group)}'),

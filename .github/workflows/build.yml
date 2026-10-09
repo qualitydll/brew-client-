@@ -96,6 +96,11 @@ jobs:
             fi
           done
         done
+        if ! unzip -Z1 "$apk" | grep -qx \
+          'assets/flutter_assets/assets/images/brew_logo.png'; then
+          echo "::error::APK is missing the supplied Brew logo asset."
+          exit 1
+        fi
 
         grep -Fq 'useLegacyPackaging = true' android/app/build.gradle.kts
         grep -Fq 'applicationInfo.nativeLibraryDir' \
@@ -104,10 +109,23 @@ jobs:
           android/app/src/main/kotlin/dev/brew/brew/MihomoRuntime.kt
         grep -Fq 'Clash.assertReady()' \
           android/app/src/main/kotlin/dev/brew/brew/MihomoRuntime.kt
-        grep -Fq '.put("homeDir", homeDir.absolutePath)' \
+        grep -Fq '.put("home-dir", homeDir.absolutePath)' \
           android/app/src/main/kotlin/dev/brew/brew/MihomoVpnService.kt
-        grep -Fq '.put("selectedMap", JSONObject())' \
+        grep -Fq '.put("version", Build.VERSION.SDK_INT)' \
           android/app/src/main/kotlin/dev/brew/brew/MihomoVpnService.kt
+        grep -Fq '.put("selected-map", JSONObject())' \
+          android/app/src/main/kotlin/dev/brew/brew/MihomoVpnService.kt
+        grep -Fq 'File(configPath).canonicalFile' \
+          android/app/src/main/kotlin/dev/brew/brew/MihomoVpnService.kt
+        grep -Fq 'CONFIG_FILE_NAME = "config.yaml"' \
+          android/app/src/main/kotlin/dev/brew/brew/MihomoVpnService.kt
+        grep -Fq 'prepareMihomoConfigFile(dataDir)' lib/state/app_state.dart
+        grep -Fq "p.join(dataDirectory, 'home')" \
+          lib/core/mihomo_config_path.dart
+        grep -Fq 'await file.parent.create(recursive: true)' \
+          lib/core/mihomo_config_path.dart
+        grep -Fq 'prepareMihomoConfigFile' \
+          test/core/mihomo_config_path_test.dart
         grep -Fq 'MihomoRuntime.load(this)' \
           android/app/src/main/kotlin/dev/brew/brew/MainActivity.kt
         grep -Fq 'MihomoRuntime.load(this)' \
