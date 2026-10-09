@@ -11,6 +11,8 @@ import android.os.ParcelFileDescriptor
 import io.github.oviron.libmihomo.Clash
 import io.github.oviron.libmihomo.TunInterface
 import java.io.File
+import java.util.concurrent.CountDownLatch
+import java.util.concurrent.TimeUnit
 
 class BrewVpnService : VpnService() {
     private val tunCallbacks = object : TunInterface {
