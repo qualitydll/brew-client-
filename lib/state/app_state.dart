@@ -5,7 +5,6 @@ import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
-import 'package:http/io_client.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -181,72 +180,7 @@ class AppState extends ChangeNotifier {
     );
   }
 
-  /// Resolves [host] over DNS-over-HTTPS. Used when the system resolver can't
-  /// find a host, e.g. when the provider's DNS blocks the subscription domain.
-  Future<InternetAddress?> _resolveDoH(String host) async {
-    final literal = InternetAddress.tryParse(host);
-    if (literal != null) return literal;
-    final doh = HttpClient()..connectionTimeout = const Duration(seconds: 5);
-    try {
-      const endpoints = [
-        'https://1.1.1.1/dns-query',
-        'https://8.8.8.8/resolve',
-      ];
-      for (final base in endpoints) {
-        try {
-          final uri = Uri.parse(
-            base,
-          ).replace(queryParameters: {'name': host, 'type': 'A'});
-          final req = await doh.getUrl(uri).timeout(const Duration(seconds: 5));
-          req.headers.set('accept', 'application/dns-json');
-          final res = await req.close().timeout(const Duration(seconds: 5));
-          if (res.statusCode != 200) continue;
-          final body = await res.transform(utf8.decoder).join();
-          final answers = (jsonDecode(body) as Map)['Answer'] as List? ?? const [];
-          for (final a in answers) {
-            if (a is Map && a['type'] == 1 && a['data'] is String) {
-              return InternetAddress(a['data'] as String);
-            }
-          }
-        } catch (_) {
-          // Try the next resolver.
-        }
-      }
-      return null;
-    } finally {
-      doh.close(force: true);
-    }
-  }
-
-  /// Makes the HTTP client connect through the system resolver first and fall
-  /// back to DoH. TLS still validates the certificate against the real host
-  /// name, because only the TCP connection target changes.
-  void _installDoHResolver(HttpClient client) {
-    client.connectionFactory = (uri, proxyHost, proxyPort) async {
-      final targetHost = proxyHost ?? uri.host;
-      final port =
-          proxyPort ??
-          (uri.hasPort ? uri.port : (uri.scheme == 'https' ? 443 : 80));
-      InternetAddress? addr;
-      try {
-        final found = await InternetAddress.lookup(targetHost);
-        if (found.isNotEmpty) addr = found.first;
-      } on SocketException {
-        // Fall through to DoH.
-      }
-      addr ??= await _resolveDoH(targetHost);
-      if (addr == null) {
-        throw SocketException('Не удалось найти адрес сервера $targetHost');
-      }
-      return Socket.startConnect(addr, port);
-    };
-  }
-
-  http.Client _makeHttpClient() {
-    final inner = HttpClient()..connectionTimeout = const Duration(seconds: 15);
-    _installDoHResolver(inner);
-    return IOClient(inner);
-  }
+  http.Client _makeHttpClient() => http.Client();
 
   Future<(String, http.Response)> _download(String url) async {
     final client = _makeHttpClient();
