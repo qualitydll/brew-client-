@@ -113,7 +113,7 @@ jobs:
           permissions = [
               "android.permission.INTERNET",
               "android.permission.FOREGROUND_SERVICE",
-              "android.permission.FOREGROUND_SERVICE_SPECIAL_USE",
+              "android.permission.FOREGROUND_SERVICE_SYSTEM_EXEMPTED",
           ]
           insert = ""
           for permission in permissions:
@@ -146,13 +146,10 @@ jobs:
                       android:name=".BrewVpnService"
                       android:permission="android.permission.BIND_VPN_SERVICE"
                       android:exported="true"
-                      android:foregroundServiceType="specialUse">
+                      android:foregroundServiceType="systemExempted">
                       <intent-filter>
                           <action android:name="android.net.VpnService" />
                       </intent-filter>
-                      <property
-                          android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
-                          android:value="Brew encrypted VPN tunnel" />
                   </service>
           """
               if "</application>" not in text:
