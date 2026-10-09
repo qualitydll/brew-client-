@@ -48,18 +48,38 @@ String? tryDecodeBase64(String input) {
   }
 }
 
+Map<String, dynamic>? _tryParseClashConfig(String text) {
+  try {
+    final doc = yamlToPlain(loadYaml(text));
+    if (doc is Map<String, dynamic> &&
+        (doc.containsKey('proxies') || doc.containsKey('proxy-providers'))) {
+      return doc;
+    }
+  } catch (_) {}
+  return null;
+}
+
 ParsedSubscription parseSubscription(String content) {
   final text = content.trim();
   if (text.isEmpty) return ParsedSubscription();
 
+  // A Clash/mihomo config (YAML or JSON) usually contains "://" itself (DoH
+  // servers, geox-url, ...), so it has to be recognised before the text is
+  // treated as a list of share links.
+  final looksLikeConfig =
+      text.startsWith('{') ||
+      RegExp(
+        r'^(proxies|proxy-providers)\s*:',
+        multiLine: true,
+      ).hasMatch(text);
+  if (looksLikeConfig) {
+    final config = _tryParseClashConfig(text);
+    if (config != null) return ParsedSubscription(clashConfig: config);
+  }
+
   if (!text.contains('://')) {
-    try {
-      final doc = yamlToPlain(loadYaml(text));
-      if (doc is Map<String, dynamic> &&
-          (doc.containsKey('proxies') || doc.containsKey('proxy-providers'))) {
-        return ParsedSubscription(clashConfig: doc);
-      }
-    } catch (_) {}
+    final config = _tryParseClashConfig(text);
+    if (config != null) return ParsedSubscription(clashConfig: config);
     final decoded = tryDecodeBase64(text);
     if (decoded != null && decoded.contains('://')) {
       return ParsedSubscription(proxies: parseLinks(decoded));
