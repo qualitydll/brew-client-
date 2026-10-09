@@ -146,7 +146,6 @@ class _LogLine extends StatelessWidget {
             width: double.infinity,
             child: SelectableText(
               entry.message,
-              softWrap: true,
               textWidthBasis: TextWidthBasis.parent,
               style: const TextStyle(
                 fontFamily: 'monospace',
