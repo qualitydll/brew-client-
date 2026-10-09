@@ -30,6 +30,8 @@ class MihomoCore {
       try {
         final nativePath =
             await _nativeChannel.invokeMethod<String>('mihomoPath');
+        // Embedded JNI Mihomo is a library, not a standalone executable.
+        if (nativePath == 'embedded://mihomo') return nativePath;
         if (nativePath != null && await File(nativePath).exists()) {
           return nativePath;
         }

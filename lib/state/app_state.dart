@@ -4,6 +4,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:http/http.dart' as http;
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
@@ -71,6 +72,7 @@ class LogStore extends ChangeNotifier {
 }
 
 class AppState extends ChangeNotifier {
+  static const MethodChannel _androidVpn = MethodChannel('brew/native');
   late final Settings settings;
   late final String dataDir;
   final core = MihomoCore();
@@ -183,69 +185,71 @@ class AppState extends ChangeNotifier {
   http.Client _makeHttpClient() => http.Client();
 
   Future<(String, http.Response)> _download(String url) async {
-    final client = _makeHttpClient();
-    try {
-      final uri = Uri.parse(url);
-      var res = await client
-          .get(
-            uri,
-            headers: {
-              'User-Agent': 'clash.meta/mihomo brew/0.1',
-              'Accept': 'text/plain, application/yaml, application/x-yaml, application/json, */*',
-            },
-          )
-          .timeout(const Duration(seconds: 20));
+    final uri = Uri.tryParse(url);
+    if (uri == null ||
+        (uri.scheme != 'https' && uri.scheme != 'http') ||
+        uri.host.isEmpty) {
+      throw Exception('Нужна полная ссылка подписки, начинающаяся с http:// или https://');
+    }
 
-      // Some subscription panels route or format responses by User-Agent.
-      // Retry a 404 once as a normal Android browser before reporting failure.
-      if (res.statusCode == 404) {
-        final retry = await client
+    const accept =
+        'text/plain, application/yaml, application/x-yaml, application/json, */*';
+    const userAgents = [
+      'Mozilla/5.0 (Linux; Android 16) AppleWebKit/537.36 '
+          '(KHTML, like Gecko) Chrome/130.0.0.0 Mobile Safari/537.36',
+      'clash.meta/mihomo brew/0.1',
+    ];
+    Object? lastError;
+    http.Response? lastResponse;
+
+    // Some subscription panels stall or reject clients whose User-Agent
+    // doesn't look like a normal browser. Try a browser first, then Mihomo.
+    for (final userAgent in userAgents) {
+      final client = _makeHttpClient();
+      try {
+        final res = await client
             .get(
               uri,
-              headers: {
-                'User-Agent':
-                    'Mozilla/5.0 (Linux; Android 16) AppleWebKit/537.36 '
-                    '(KHTML, like Gecko) Chrome/130.0.0.0 Mobile Safari/537.36',
-                'Accept': 'text/plain, application/yaml, application/x-yaml, application/json, */*',
-              },
+              headers: {'User-Agent': userAgent, 'Accept': accept},
             )
-            .timeout(const Duration(seconds: 20));
-        // Prefer a successful response, otherwise preserve the retry's result
-        // because it reflects the browser-compatible request.
-        res = retry;
-      }
-
-      if (res.statusCode >= 400) {
-        if (res.statusCode == 404) {
-          throw Exception(
-            'Сервер вернул 404 даже после повторного запроса с обычным браузерным User-Agent.\n'
-            'Клиент повторил запрос автоматически, но сервер всё равно не нашёл путь. '
-            'Проверьте адрес или создайте новую ссылку у провайдера. '
-            'Полный URL и токен никому не отправляйте.',
-          );
+            .timeout(const Duration(seconds: 30));
+        lastResponse = res;
+        if (res.statusCode >= 200 && res.statusCode < 300) {
+          return (utf8.decode(res.bodyBytes, allowMalformed: true), res);
         }
-        final body = utf8.decode(res.bodyBytes, allowMalformed: true);
-        final snippet = body.length > 300 ? body.substring(0, 300) : body;
-        throw Exception(
-          'Сервер вернул ${res.statusCode}\nОтвет: $snippet',
-        );
+        lastError = 'HTTP ${res.statusCode}';
+      } on TimeoutException catch (e) {
+        lastError = e;
+      } on SocketException catch (e) {
+        lastError = e;
+      } on HandshakeException catch (e) {
+        lastError = e;
+      } finally {
+        client.close();
       }
-      return (utf8.decode(res.bodyBytes, allowMalformed: true), res);
-    } on SocketException catch (e) {
-      throw Exception(
-        'Не удалось подключиться к серверу подписки: ${e.message}\n'
-        'Проверьте адрес и сеть или вставьте ссылки серверов текстом.',
-      );
-    } on HandshakeException catch (e) {
-      throw Exception('Ошибка TLS при подключении к серверу: ${e.message}');
-    } on TimeoutException {
-      throw Exception(
-        'Сервер не ответил за 20 секунд.\n'
-        'Проверьте адрес подписки и доступность сети.',
-      );
-    } finally {
-      client.close();
     }
+
+    if (lastResponse != null) {
+      final body = utf8.decode(lastResponse.bodyBytes, allowMalformed: true);
+      final snippet = body.length > 300 ? body.substring(0, 300) : body;
+      throw Exception(
+        'Сервер вернул HTTP ${lastResponse.statusCode} при двух вариантах запроса.\n'
+        'Ответ: $snippet',
+      );
+    }
+    if (lastError is TimeoutException) {
+      throw Exception(
+        'Подключение к серверу не завершилось за 30 секунд даже после повторного запроса с другим User-Agent. '
+        'Проверьте, доступен ли домен из сети телефона; сама ссылка может открываться в браузере через другую сеть или VPN.',
+      );
+    }
+    if (lastError is HandshakeException) {
+      throw Exception('Ошибка TLS при подключении к серверу: $lastError');
+    }
+    if (lastError is SocketException) {
+      throw Exception('Не удалось подключиться к серверу подписки: $lastError');
+    }
+    throw Exception('Не удалось получить ответ от сервера подписки.');
   }
 
   String? _titleFromHeaders(http.Response res, String url) {
@@ -369,8 +373,9 @@ class AppState extends ChangeNotifier {
     apiPort: settings.apiPort,
     secret: settings.secret,
     mode: settings.mode,
-    tun: settings.tun,
-    allowLan: settings.allowLan,
+    // Android routes through VpnService's TUN fd; don't start Mihomo's own TUN.
+    tun: Platform.isAndroid ? false : settings.tun,
+    allowLan: Platform.isAndroid ? false : settings.allowLan,
   );
 
   Future<void> connect() async {
@@ -380,7 +385,7 @@ class AppState extends ChangeNotifier {
       notifyListeners();
       return;
     }
-    if (corePath == null) {
+    if (!Platform.isAndroid && corePath == null) {
       error = 'Не найдено ядро mihomo. Укажите путь в настройках.';
       notifyListeners();
       return;
@@ -396,26 +401,84 @@ class AppState extends ChangeNotifier {
         baseConfigFor(parseSubscription(content)),
         _options,
       );
+      if (Platform.isAndroid) {
+        // Android's VpnService owns the full-device TUN. Mihomo runs in-process
+        // and receives that TUN fd through JNI; its own tun device must stay off.
+        config['tun'] = {'enable': false};
+        config['allow-lan'] = false;
+        final dns = config['dns'];
+        if (dns is! Map || dns['enable'] != true) {
+          config['dns'] = {
+            'enable': true,
+            'ipv6': true,
+            'enhanced-mode': 'fake-ip',
+            'fake-ip-range': '198.18.0.1/16',
+            'fake-ip-filter': [
+              '*.lan',
+              '*.local',
+              '+.msftconnecttest.com',
+              '+.msftncsi.com',
+            ],
+            'default-nameserver': ['1.1.1.1', '8.8.8.8'],
+            'nameserver': [
+              'https://1.1.1.1/dns-query',
+              'https://dns.google/dns-query',
+            ],
+          };
+        }
+      }
+
       final configFile = File(p.join(dataDir, 'home', 'config.yaml'));
-      skipped = await _writeValidConfig(config, configFile);
-      for (final s in skipped) {
-        logs.add(LogEntry('warning', 'Сервер пропущен: $s'));
+      if (Platform.isAndroid) {
+        // The embedded core validates/applies this config itself. Executing the
+        // packaged .so with Process.run is not a valid Android startup path.
+        await configFile.writeAsString(
+          const JsonEncoder.withIndent('  ').convert(config),
+        );
+      } else {
+        skipped = await _writeValidConfig(config, configFile);
+        for (final s in skipped) {
+          logs.add(LogEntry('warning', 'Сервер пропущен: $s'));
+        }
       }
 
       final api = MihomoApi(port: settings.apiPort, secret: settings.secret);
       _api = api;
-      await core.start(
-        binary: corePath!,
-        homeDir: p.join(dataDir, 'home'),
-        configPath: configFile.path,
-        api: api,
-      );
-      if (settings.systemProxy && !settings.tun) {
-        await SystemProxy.enable(settings.mixedPort);
+      if (Platform.isAndroid) {
+        await _androidVpn.invokeMethod<void>('startVpn', {
+          'homeDir': configFile.parent.path,
+        });
+        final deadline = DateTime.now().add(const Duration(seconds: 20));
+        var apiReady = false;
+        while (DateTime.now().isBefore(deadline)) {
+          try {
+            await api.version();
+            apiReady = true;
+            break;
+          } catch (_) {
+            await Future<void>.delayed(const Duration(milliseconds: 200));
+          }
+        }
+        if (!apiReady) {
+          throw Exception(
+            'VPN-сервис запустился, но API Mihomo не ответил за 20 секунд. '
+            'Откройте журнал подключения для подробностей.',
+          );
+        }
+      } else {
+        await core.start(
+          binary: corePath!,
+          homeDir: p.join(dataDir, 'home'),
+          configPath: configFile.path,
+          api: api,
+        );
+        if (settings.systemProxy && !settings.tun) {
+          await SystemProxy.enable(settings.mixedPort);
+        }
       }
+
       _subscribeStreams(api);
       await refreshProxies();
-      // Let the connect animation breathe a little even on fast machines.
       final elapsed = DateTime.now().difference(started);
       if (elapsed < const Duration(milliseconds: 900)) {
         await Future<void>.delayed(const Duration(milliseconds: 900) - elapsed);
@@ -424,7 +487,14 @@ class AppState extends ChangeNotifier {
       connectedAt = DateTime.now();
       notifyListeners();
     } catch (e) {
-      await core.stop();
+      if (Platform.isAndroid) {
+        try {
+          await _androidVpn.invokeMethod<void>('stopVpn');
+        } catch (_) {}
+      } else {
+        await core.stop();
+      }
+      _api?.close();
       _api = null;
       status = ConnStatus.disconnected;
       error = e.toString();
@@ -479,8 +549,14 @@ class AppState extends ChangeNotifier {
     if (status == ConnStatus.disconnected) return;
     status = ConnStatus.disconnecting;
     notifyListeners();
-    if (settings.systemProxy) await SystemProxy.disable();
-    await core.stop();
+    if (!Platform.isAndroid && settings.systemProxy) {
+      await SystemProxy.disable();
+    }
+    if (Platform.isAndroid) {
+      await _androidVpn.invokeMethod<void>('stopVpn');
+    } else {
+      await core.stop();
+    }
     await Future<void>.delayed(const Duration(milliseconds: 400));
     _afterStopped();
   }
@@ -505,8 +581,16 @@ class AppState extends ChangeNotifier {
 
   Future<void> shutdown() async {
     if (status != ConnStatus.disconnected) {
-      if (settings.systemProxy) await SystemProxy.disable();
-      await core.stop();
+      if (!Platform.isAndroid && settings.systemProxy) {
+        await SystemProxy.disable();
+      }
+      if (Platform.isAndroid) {
+        try {
+          await _androidVpn.invokeMethod<void>('stopVpn');
+        } catch (_) {}
+      } else {
+        await core.stop();
+      }
     }
   }
 
