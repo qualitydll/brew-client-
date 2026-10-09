@@ -14,7 +14,14 @@ import java.io.File
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
 
-class BrewVpnService : VpnService(), TunInterface {
+class BrewVpnService : VpnService() {
+    private val tunCallbacks = object : TunInterface {
+        override fun protect(fd: Int) {
+            this@BrewVpnService.protect(fd)
+        }
+
+        override fun resolverProcess(protocol: Int, source: String, target: String, uid: Int): String = ""
+    }
     @Volatile private var tun: ParcelFileDescriptor? = null
     @Volatile private var started = false
 
@@ -81,7 +88,7 @@ class BrewVpnService : VpnService(), TunInterface {
 
             Clash.startTUN(
                 descriptor.fd,
-                this,
+                tunCallbacks,
                 "brew",
                 "system",
                 "172.19.0.1/30,fdfe:dcba:9877::1/126",
@@ -98,12 +105,6 @@ class BrewVpnService : VpnService(), TunInterface {
             stopSelf(startId)
         }
     }
-
-    override fun protect(fd: Int) {
-        super.protect(fd)
-    }
-
-    override fun resolverProcess(protocol: Int, source: String, target: String, uid: Int): String = ""
 
     private fun stopTunnel() {
         try {
