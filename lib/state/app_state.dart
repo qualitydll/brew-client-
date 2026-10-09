@@ -194,7 +194,7 @@ class AppState extends ChangeNotifier {
       if (res.statusCode >= 400) {
         if (res.statusCode == 404) {
           throw Exception(
-            'Сервер вернул 404 Not Found. Адрес отвечает, но подписка по этому пути не найдена.\\n'
+            'Сервер вернул 404 Not Found. Адрес отвечает, но подписка по этому пути не найдена.\n'
             'Проверьте ссылку в кабинете провайдера: путь или токен могли измениться. '
             'Не публикуйте ссылку целиком.',
           );
@@ -202,7 +202,7 @@ class AppState extends ChangeNotifier {
         final body = utf8.decode(res.bodyBytes, allowMalformed: true);
         final snippet = body.length > 300 ? body.substring(0, 300) : body;
         throw Exception(
-          'Сервер вернул ${res.statusCode}\\nОтвет: $snippet',
+          'Сервер вернул ${res.statusCode}\nОтвет: $snippet',
         );
       }
       return (utf8.decode(res.bodyBytes, allowMalformed: true), res);
