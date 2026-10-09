@@ -181,7 +181,12 @@ class SettingsPage extends StatelessWidget {
             contentPadding: EdgeInsets.zero,
             title: Text('mihomo ${state.coreVersion ?? ''}'),
             subtitle: Text(
-              state.corePath ?? 'Не найдено — положите mihomo рядом с программой в папку core',
+              state.corePath ??
+                  (Platform.isAndroid
+                      ? (state.coreInstallError == null
+                          ? 'Ядро ещё не установлено'
+                          : 'Не удалось установить Mihomo: ${state.coreInstallError}')
+                      : 'Не найдено — положите mihomo рядом с программой в папку core'),
             ),
             trailing: const Icon(Icons.folder_open_rounded),
             onTap: () async {
