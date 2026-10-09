@@ -44,6 +44,31 @@ jobs:
       - name: Generate Android project
         run: flutter create --platforms=android --project-name brew .
 
+      - name: Add native Mihomo path channel
+        run: |
+          mkdir -p android/app/src/main/kotlin/com/example/brew
+          cat > android/app/src/main/kotlin/com/example/brew/MainActivity.kt <<'EOF'
+          package com.example.brew
+
+          import io.flutter.embedding.android.FlutterActivity
+          import io.flutter.embedding.engine.FlutterEngine
+          import io.flutter.plugin.common.MethodChannel
+
+          class MainActivity : FlutterActivity() {
+              override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
+                  super.configureFlutterEngine(flutterEngine)
+                  MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "brew/native")
+                      .setMethodCallHandler { call, result ->
+                          if (call.method == "mihomoPath") {
+                              result.success(applicationInfo.nativeLibraryDir + "/libmihomo.so")
+                          } else {
+                              result.notImplemented()
+                          }
+                      }
+              }
+          }
+          EOF
+
       - name: Remove generated placeholder test
         run: rm -f test/widget_test.dart
 
@@ -94,24 +119,26 @@ jobs:
           app = text[app_start:app_end + 1]
           app = set_attr(app, "android:label", "brew")
           app = set_attr(app, "android:icon", "@mipmap/ic_launcher")
+          app = set_attr(app, "android:extractNativeLibs", "true")
           text = text[:app_start] + app + text[app_end + 1:]
           path.write_text(text)
-          print("manifest configured: internet permission, brew label, ic_launcher icon")
+          print("manifest configured: internet, label, icon, native library extraction")
           PY
-          grep -nE 'INTERNET|<application|android:label|android:icon' android/app/src/main/AndroidManifest.xml
+          grep -nE 'INTERNET|<application|android:label|android:icon|extractNativeLibs' android/app/src/main/AndroidManifest.xml
 
-      - name: Download Mihomo for Android arm64
+      - name: Download Mihomo into native library directory
         shell: bash
         run: |
           set -euo pipefail
-          mkdir -p assets/bin
+          mkdir -p android/app/src/main/jniLibs/arm64-v8a
           curl --fail --location --retry 3 \
             https://github.com/MetaCubeX/mihomo/releases/download/v1.19.31/mihomo-android-arm64-v8-v1.19.31.gz \
             --output /tmp/mihomo.gz
           gzip --test /tmp/mihomo.gz
-          gzip --decompress --stdout /tmp/mihomo.gz > assets/bin/mihomo-android-arm64-v8
-          test -s assets/bin/mihomo-android-arm64-v8
-          chmod 755 assets/bin/mihomo-android-arm64-v8
+          gzip --decompress --stdout /tmp/mihomo.gz > android/app/src/main/jniLibs/arm64-v8a/libmihomo.so
+          test -s android/app/src/main/jniLibs/arm64-v8a/libmihomo.so
+          chmod 755 android/app/src/main/jniLibs/arm64-v8a/libmihomo.so
+          file android/app/src/main/jniLibs/arm64-v8a/libmihomo.so
 
       - name: Get dependencies
         run: flutter pub get
@@ -123,6 +150,7 @@ jobs:
         run: |
           find android/app/src/main/res -path '*mipmap*' -type f -print
           test -n "$(find android/app/src/main/res -type f -name 'ic_launcher.png' -print -quit)"
+          test -s android/app/src/main/jniLibs/arm64-v8a/libmihomo.so
 
       - name: Build arm64 APK
         run: flutter build apk --release --target-platform android-arm64
