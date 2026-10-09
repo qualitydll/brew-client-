@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:flutter/services.dart';
 import 'package:path/path.dart' as p;
 
 import 'mihomo_api.dart';
@@ -16,11 +17,27 @@ class MihomoCore {
   bool get isRunning => _process != null;
 
   static String get binaryName => Platform.isWindows ? 'mihomo.exe' : 'mihomo';
+  static const _nativeChannel = MethodChannel('brew/native');
 
   static Future<String?> locate({
     String? customPath,
     required String dataDir,
   }) async {
+    if (Platform.isAndroid) {
+      // Android may mount app-writable data directories with noexec. The
+      // packaged native-library directory is the appropriate place for the
+      // bundled executable, exposed by MainActivity over a method channel.
+      try {
+        final nativePath =
+            await _nativeChannel.invokeMethod<String>('mihomoPath');
+        if (nativePath != null && await File(nativePath).exists()) {
+          return nativePath;
+        }
+      } catch (_) {
+        // Fall back to regular binary discovery for older builds.
+      }
+    }
+
     final candidates = <String>[
       if (customPath != null && customPath.isNotEmpty) customPath,
       if (Platform.environment['BREW_CORE'] != null)
@@ -63,7 +80,7 @@ class MihomoCore {
     ]);
     if (res.exitCode == 0) return null;
     final out = '${res.stdout}\n${res.stderr}';
-    final msgs = RegExp(r'level=(?:error|fatal) msg="((?:[^"\\]|\\.)*)"')
+    final msgs = RegExp(r'level=(?:error|fatal) msg="((?:[^"\\\\]|\\\\.)*)"')
         .allMatches(out)
         .map((m) => m.group(1)!)
         .toList();

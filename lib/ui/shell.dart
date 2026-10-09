@@ -32,11 +32,11 @@ class _Dest {
 }
 
 const _dests = [
-  _Dest('Главная', Icons.bolt_outlined, Icons.bolt_rounded),
-  _Dest('Серверы', Icons.public_outlined, Icons.public_rounded),
-  _Dest('Подписки', Icons.layers_outlined, Icons.layers_rounded),
-  _Dest('Журнал', Icons.receipt_long_outlined, Icons.receipt_long_rounded),
-  _Dest('Настройки', Icons.tune_outlined, Icons.tune_rounded),
+  _Dest('главная', Icons.bolt_outlined, Icons.bolt_rounded),
+  _Dest('серверы', Icons.public_outlined, Icons.public_rounded),
+  _Dest('подписки', Icons.layers_outlined, Icons.layers_rounded),
+  _Dest('журнал', Icons.receipt_long_outlined, Icons.receipt_long_rounded),
+  _Dest('настройки', Icons.tune_outlined, Icons.tune_rounded),
 ];
 
 class _ShellState extends State<Shell> {

@@ -185,13 +185,45 @@ class AppState extends ChangeNotifier {
   Future<(String, http.Response)> _download(String url) async {
     final client = _makeHttpClient();
     try {
-      final res = await client
+      final uri = Uri.parse(url);
+      var res = await client
           .get(
-            Uri.parse(url),
-            headers: {'User-Agent': 'clash.meta/mihomo brew/0.1'},
+            uri,
+            headers: {
+              'User-Agent': 'clash.meta/mihomo brew/0.1',
+              'Accept': 'text/plain, application/yaml, application/x-yaml, application/json, */*',
+            },
           )
           .timeout(const Duration(seconds: 20));
+
+      // Some subscription panels route or format responses by User-Agent.
+      // Retry a 404 once as a normal Android browser before reporting failure.
+      if (res.statusCode == 404) {
+        final retry = await client
+            .get(
+              uri,
+              headers: {
+                'User-Agent':
+                    'Mozilla/5.0 (Linux; Android 16) AppleWebKit/537.36 '
+                    '(KHTML, like Gecko) Chrome/130.0.0.0 Mobile Safari/537.36',
+                'Accept': 'text/plain, application/yaml, application/x-yaml, application/json, */*',
+              },
+            )
+            .timeout(const Duration(seconds: 20));
+        // Prefer a successful response, otherwise preserve the retry's result
+        // because it reflects the browser-compatible request.
+        res = retry;
+      }
+
       if (res.statusCode >= 400) {
+        if (res.statusCode == 404) {
+          throw Exception(
+            'Сервер вернул 404 даже после повторного запроса с обычным браузерным User-Agent.\n'
+            'Клиент повторил запрос автоматически, но сервер всё равно не нашёл путь. '
+            'Проверьте адрес или создайте новую ссылку у провайдера. '
+            'Полный URL и токен никому не отправляйте.',
+          );
+        }
         final body = utf8.decode(res.bodyBytes, allowMalformed: true);
         final snippet = body.length > 300 ? body.substring(0, 300) : body;
         throw Exception(
