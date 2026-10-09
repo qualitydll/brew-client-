@@ -57,3 +57,5 @@ jobs:
           name: brew-android-arm64-mihomo-apk
           path: build/app/outputs/flutter-apk/app-release.apk
           if-no-files-found: error
+
+# Re-run requested by repository owner to verify the current experimental branch.
