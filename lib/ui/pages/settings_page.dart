@@ -364,7 +364,7 @@ class _DomainRuleDialogState extends State<_DomainRuleDialog> {
             ),
             const SizedBox(height: 8),
             DropdownButtonFormField<String>(
-              value: _action,
+              initialValue: _action,
               decoration: const InputDecoration(
                 labelText: 'Действие',
                 border: OutlineInputBorder(),
