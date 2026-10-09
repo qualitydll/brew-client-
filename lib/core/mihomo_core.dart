@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:flutter/services.dart';
 import 'package:path/path.dart' as p;
 
 import 'mihomo_api.dart';
@@ -21,6 +22,31 @@ class MihomoCore {
     String? customPath,
     required String dataDir,
   }) async {
+    if (Platform.isAndroid) {
+      // The Android CI build bundles the official arm64 Mihomo executable.
+      // Extract it into app-private storage so Process.start can use a file path.
+      final bundledPath = p.join(dataDir, 'core', 'mihomo');
+      final bundledFile = File(bundledPath);
+      try {
+        if (!await bundledFile.exists()) {
+          final bytes = await rootBundle.load(
+            'assets/bin/mihomo-android-arm64-v8',
+          );
+          await bundledFile.parent.create(recursive: true);
+          await bundledFile.writeAsBytes(
+            bytes.buffer.asUint8List(bytes.offsetInBytes, bytes.lengthInBytes),
+            flush: true,
+          );
+        }
+        final chmod = await Process.run('chmod', ['700', bundledPath]);
+        if (chmod.exitCode == 0 && await bundledFile.exists()) {
+          return bundledPath;
+        }
+      } catch (_) {
+        // Continue with user-provided paths and normal binary discovery below.
+      }
+    }
+
     final candidates = <String>[
       if (customPath != null && customPath.isNotEmpty) customPath,
       if (Platform.environment['BREW_CORE'] != null)
