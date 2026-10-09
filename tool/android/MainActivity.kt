@@ -7,6 +7,7 @@ import android.content.IntentFilter
 import android.net.VpnService
 import android.os.Build
 import android.os.Bundle
+import io.github.oviron.libmihomo.Clash
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodChannel
@@ -57,7 +58,20 @@ class MainActivity : FlutterActivity() {
             .setMethodCallHandler { call, result ->
                 when (call.method) {
                     // Android embeds Mihomo through JNI; there is no standalone executable.
-                    "mihomoPath" -> result.success(null)
+                    "mihomoPath" -> {
+                        try {
+                            if (!Clash.isLoaded()) {
+                                Clash.load(applicationInfo.nativeLibraryDir)
+                            }
+                            result.success(if (Clash.isLoaded()) "embedded://mihomo" else null)
+                        } catch (e: Throwable) {
+                            result.error(
+                                "MIHOMO_LOAD_FAILED",
+                                e.message ?: "Не удалось загрузить встроенное ядро Mihomo",
+                                null,
+                            )
+                        }
+                    }
                     "startVpn" -> {
                         val homeDir = call.argument<String>("homeDir")
                         if (homeDir.isNullOrBlank()) {
