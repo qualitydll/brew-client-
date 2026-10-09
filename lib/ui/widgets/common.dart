@@ -161,34 +161,68 @@ class PageHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final t = Theme.of(context).textTheme;
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(32, 8, 32, 16),
-      child: Row(
-        children: [
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  title,
-                  style: t.displaySmall?.copyWith(fontWeight: FontWeight.w600),
-                ),
-                if (subtitle != null)
-                  Padding(
-                    padding: const EdgeInsets.only(top: 4),
-                    child: Text(
-                      subtitle!,
-                      style: t.bodyLarge?.copyWith(
-                        color: Theme.of(context).colorScheme.onSurfaceVariant,
-                      ),
-                    ),
-                  ),
-              ],
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final compact = constraints.maxWidth < 640;
+        final heading = Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              title,
+              maxLines: compact ? 2 : 1,
+              overflow: TextOverflow.ellipsis,
+              style: (compact ? t.headlineMedium : t.displaySmall)
+                  ?.copyWith(fontWeight: FontWeight.w600),
             ),
+            if (subtitle != null)
+              Padding(
+                padding: const EdgeInsets.only(top: 4),
+                child: Text(
+                  subtitle!,
+                  style: t.bodyMedium?.copyWith(
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  ),
+                ),
+              ),
+          ],
+        );
+
+        return Padding(
+          padding: EdgeInsets.fromLTRB(
+            compact ? 16 : 32,
+            compact ? 12 : 8,
+            compact ? 16 : 32,
+            16,
           ),
-          ...actions,
-        ],
-      ),
+          child: compact
+              ? Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    heading,
+                    if (actions.isNotEmpty) ...[
+                      const SizedBox(height: 12),
+                      Wrap(
+                        alignment: WrapAlignment.start,
+                        crossAxisAlignment: WrapCrossAlignment.center,
+                        spacing: 8,
+                        runSpacing: 8,
+                        children: actions
+                            .where((action) => action is! SizedBox)
+                            .toList(),
+                      ),
+                    ],
+                  ],
+                )
+              : Row(
+                  children: [
+                    Expanded(child: heading),
+                    const SizedBox(width: 16),
+                    ...actions,
+                  ],
+                ),
+        );
+      },
     );
   }
 }
