@@ -9,6 +9,10 @@ on:
     branches:
       - android-mihomo-integration
       - fix/android-vpnservice-mihomo
+  pull_request:
+    branches:
+      - android-mihomo-integration
+    types: [opened, synchronize, reopened]
   workflow_dispatch:
 
 permissions:
