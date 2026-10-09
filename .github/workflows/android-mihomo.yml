@@ -130,34 +130,38 @@ jobs:
         run: |
           python3 - <<'PY'
           from pathlib import Path
-          candidates = [Path("android/app/build.gradle.kts"), Path("android/app/build.gradle")]
-          path = next((p for p in candidates if p.exists()), None)
-          if path is None:
+
+          path = Path("android/app/build.gradle.kts")
+          if not path.exists():
+              path = Path("android/app/build.gradle")
+          if not path.exists():
               raise SystemExit("Android app Gradle build file not found")
+
           text = path.read_text()
-          if "useLegacyPackaging = true" in text or "useLegacyPackaging true" in text:
-              print("legacy JNI packaging already enabled")
+          if "useLegacyPackaging" in text:
+              print("JNI legacy packaging is already configured")
           else:
-              # Insert into the android { } block, before buildTypes/defaultConfig.
-              import re
-              match = re.search(r"(?m)^([ \\t]*)buildTypes\\s*\\{", text)
-              if not match:
-                  match = re.search(r"(?m)^([ \\t]*)defaultConfig\\s*\\{", text)
-              if not match:
-                  raise SystemExit("Could not find insertion point inside Android Gradle config")
-              indent = match.group(1)
+              marker = "defaultConfig {"
+              pos = text.find(marker)
+              if pos < 0:
+                  raise SystemExit("Could not find defaultConfig block in " + str(path))
+              line_start = text.rfind("\\n", 0, pos) + 1
+              indent = text[line_start:pos]
               block = (
-                  f"{indent}packaging {{\\n"
-                  f"{indent}    jniLibs {{\\n"
-                  f"{indent}        useLegacyPackaging = true\\n"
-                  f"{indent}    }}\\n"
-                  f"{indent}}}\\n\\n"
+                  indent + "packaging {\\n"
+                  + indent + "    jniLibs {\\n"
+                  + indent + "        useLegacyPackaging = true\\n"
+                  + indent + "    }\\n"
+                  + indent + "}\\n\\n"
               )
-              text = text[:match.start()] + block + text[match.start():]
+              text = text[:line_start] + block + text[line_start:]
               path.write_text(text)
-              print(f"Enabled legacy JNI packaging in {path}")
+              print("Enabled JNI legacy packaging in " + str(path))
+
+          if "useLegacyPackaging" not in path.read_text():
+              raise SystemExit("JNI legacy packaging setting was not written")
           PY
-          grep -n -A4 -B1 'useLegacyPackaging' android/app/build.gradle* 
+          cat android/app/build.gradle.kts 2>/dev/null || cat android/app/build.gradle
 
       - name: Download Mihomo into native library directory
         shell: bash
