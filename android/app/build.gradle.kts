@@ -78,6 +78,7 @@ android {
 
 dependencies {
     implementation(files(mihomoAndroidAar).builtBy(downloadMihomoAndroid))
+    implementation(files("libs/libbox.aar"))
 }
 
 kotlin {

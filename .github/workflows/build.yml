@@ -2,7 +2,10 @@ name: Build Windows EXE and Android APK
 
 on:
   push:
-    branches: [ main, qualitydll-android-mihomo-vpnservice ]
+    branches:
+      - main
+      - qualitydll-android-mihomo-vpnservice
+      - qualitydll-sing-box-android-engine
   pull_request:
     branches: [ main ]
   workflow_dispatch:
@@ -44,6 +47,23 @@ jobs:
         distribution: temurin
         java-version: '17'
 
+    - name: Setup Go for sing-box libbox
+      uses: actions/setup-go@v5
+      with:
+        go-version: '1.25.5'
+
+    - name: Checkout pinned sing-box source
+      uses: actions/checkout@v4
+      with:
+        repository: SagerNet/sing-box
+        ref: v1.14.3
+        path: .build/sing-box
+
+    - name: Install gomobile bind tools
+      run: |
+        go install github.com/sagernet/gomobile/cmd/gomobile@v0.1.13
+        go install github.com/sagernet/gomobile/cmd/gobind@v0.1.13
+
     - name: Setup Flutter
       uses: subosito/flutter-action@v2
       with:
@@ -52,7 +72,22 @@ jobs:
     - name: Setup Android SDK
       uses: android-actions/setup-android@v3
       with:
-        packages: 'platform-tools platforms;android-36 build-tools;36.0.0'
+        packages: 'platform-tools platforms;android-36 build-tools;36.0.0 ndk;28.0.13004108'
+
+    - name: Build pinned sing-box libbox AAR
+      shell: bash
+      run: |
+        set -euo pipefail
+        cd .build/sing-box
+        go run ./cmd/internal/build_libbox -target android
+        mkdir -p ../../android/app/libs
+        cp libbox.aar ../../android/app/libs/libbox.aar
+        cp libbox-legacy.aar ../../android/app/libs/libbox-legacy.aar
+        cd ../..
+        sha256sum android/app/libs/libbox.aar android/app/libs/libbox-legacy.aar
+        tar -czf sing-box-source-v1.14.3.tar.gz \
+          --exclude=.git \
+          -C .build sing-box
 
     - name: Get dependencies
       run: flutter pub get
@@ -153,3 +188,10 @@ jobs:
       with:
         name: android-release
         path: build/app/outputs/flutter-apk/app-release.apk
+
+    - name: Upload sing-box source corresponding to generated libbox
+      uses: actions/upload-artifact@v4
+      with:
+        name: sing-box-source-v1.14.3
+        path: sing-box-source-v1.14.3.tar.gz
+        if-no-files-found: error

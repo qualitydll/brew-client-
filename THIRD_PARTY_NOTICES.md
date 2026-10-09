@@ -19,6 +19,15 @@ https://github.com/oviron/libmihomo-android/tree/v0.3.7.
 The Mihomo core project is separately licensed under the MIT License:
 https://github.com/MetaCubeX/mihomo.
 
+## sing-box libbox
+
+The Android build generates `libbox.aar` and `libbox-legacy.aar` from the
+official sing-box v1.14.3 source under `.build/sing-box/` using the upstream
+`cmd/internal/build_libbox` generator. The pinned source is checked out from
+https://github.com/SagerNet/sing-box/tree/v1.14.3 and is licensed under
+GPL-3.0-or-later. The Android workflow retains the corresponding source as
+the `sing-box-source-v1.14.3` artifact alongside the APK.
+
 ## Fonts
 
 The DM Sans and Onest font files are licensed under the SIL Open Font License
