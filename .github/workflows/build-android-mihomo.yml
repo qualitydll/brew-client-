@@ -161,7 +161,7 @@ jobs:
               end_manifest = text.rfind("</application>")
               if end_manifest < 0:
                   raise SystemExit("Could not find application closing tag")
-              text = text[:end_manifest] + service + "\\n" + text[end_manifest:]
+              text = text[:end_manifest] + service + "\n" + text[end_manifest:]
           start = text.find("<application")
           end = text.find(">", start)
           app = text[start:end+1]
