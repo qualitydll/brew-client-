@@ -67,10 +67,15 @@ class AndroidCoreInstaller {
 
       final release = jsonDecode(releaseResponse.body) as Map<String, dynamic>;
       final assets = release['assets'] as List<dynamic>? ?? const [];
-      final asset = assets.cast<Map<String, dynamic>>().where((item) {
-        final name = item['name']?.toString() ?? '';
-        return name.startsWith(prefix) && name.endsWith('.gz');
-      }).firstOrNull;
+      Map<String, dynamic>? asset;
+      for (final entry in assets) {
+        if (entry is! Map<String, dynamic>) continue;
+        final name = entry['name']?.toString() ?? '';
+        if (name.startsWith(prefix) && name.endsWith('.gz')) {
+          asset = entry;
+          break;
+        }
+      }
       final url = asset?['browser_download_url']?.toString();
       if (url == null || url.isEmpty) {
         throw const HttpException(
