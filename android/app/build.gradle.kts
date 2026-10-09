@@ -1,4 +1,5 @@
 import java.security.MessageDigest
+import java.net.URL
 
 plugins {
     id("com.android.application")
@@ -23,7 +24,7 @@ val downloadMihomoAndroid by tasks.registering {
         val url =
             "https://github.com/oviron/libmihomo-android/releases/download/" +
                 "v$mihomoAndroidVersion/libmihomo-android-v$mihomoAndroidVersion.aar"
-        url.toURL().openStream().use { input ->
+        URL(url).openStream().use { input ->
             target.outputStream().use { output -> input.copyTo(output) }
         }
         val digest = MessageDigest.getInstance("SHA-256")
