@@ -56,7 +56,8 @@ class MainActivity : FlutterActivity() {
         MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "brew/native")
             .setMethodCallHandler { call, result ->
                 when (call.method) {
-                    "mihomoPath" -> result.success(applicationInfo.nativeLibraryDir + "/libmihomo.so")
+                    // Android embeds Mihomo through JNI; there is no standalone executable.
+                    "mihomoPath" -> result.success(null)
                     "startVpn" -> {
                         val homeDir = call.argument<String>("homeDir")
                         if (homeDir.isNullOrBlank()) {
