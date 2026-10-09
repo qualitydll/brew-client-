@@ -9,11 +9,12 @@ import android.net.VpnService
 import android.os.Build
 import android.os.ParcelFileDescriptor
 import io.github.oviron.libmihomo.Clash
+import io.github.oviron.libmihomo.TunInterface
 import java.io.File
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
 
-class BrewVpnService : VpnService() {
+class BrewVpnService : VpnService(), TunInterface {
     @Volatile private var tun: ParcelFileDescriptor? = null
     @Volatile private var started = false
 
@@ -122,7 +123,7 @@ class BrewVpnService : VpnService() {
         }
         tun = null
         started = false
-        stopForeground(STOP_FOREGROUND_REMOVE)
+        stopForeground(true)
     }
 
     private fun reportError(message: String) {
