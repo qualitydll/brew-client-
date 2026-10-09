@@ -50,6 +50,7 @@ jobs:
             https://github.com/oviron/libmihomo-android/releases/download/v0.3.5/libmihomo-android-v0.3.5.aar \
             --output android/app/libs/libmihomo-android-v0.3.5.aar
           test -s android/app/libs/libmihomo-android-v0.3.5.aar
+          echo "41ddcce67de37f406377798c5adbc7ff925e6cd9cadbef3f187da3a03e564176  android/app/libs/libmihomo-android-v0.3.5.aar" | sha256sum --check
           cp tool/android/MainActivity.kt android/app/src/main/kotlin/com/example/brew/MainActivity.kt
           cp tool/android/BrewVpnService.kt android/app/src/main/kotlin/com/example/brew/BrewVpnService.kt
           python3 - <<'PY'
