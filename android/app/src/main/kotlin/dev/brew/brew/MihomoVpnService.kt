@@ -19,8 +19,22 @@ import java.util.concurrent.CountDownLatch
 import java.util.concurrent.Executors
 import java.util.concurrent.TimeUnit
 
-class MihomoVpnService : VpnService(), TunInterface {
+class MihomoVpnService : VpnService() {
     private val worker = Executors.newSingleThreadExecutor()
+    private val tunInterface = object : TunInterface {
+        override fun protect(fd: Int) {
+            check(this@MihomoVpnService.protect(fd)) {
+                "Could not protect Mihomo's outbound socket."
+            }
+        }
+
+        override fun resolverProcess(
+            protocol: Int,
+            source: String,
+            target: String,
+            uid: Int,
+        ): String = ""
+    }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         val receiver = intent?.getResultReceiver()
@@ -95,7 +109,7 @@ class MihomoVpnService : VpnService(), TunInterface {
         check(setupError == null) { "Mihomo rejected the profile: $setupError" }
 
         val tun = Builder()
-            .setSession(getString(R.string.app_name))
+            .setSession(packageManager.getApplicationLabel(applicationInfo).toString())
             .setMtu(TUN_MTU)
             .addAddress(IPV4_ADDRESS, 30)
             .addRoute("0.0.0.0", 0)
@@ -109,7 +123,7 @@ class MihomoVpnService : VpnService(), TunInterface {
         try {
             Clash.startTUN(
                 fd = fd,
-                cb = this,
+                cb = tunInterface,
                 device = "brew",
                 stack = "mixed",
                 address = "$IPV4_ADDRESS/30,$IPV6_ADDRESS/126",
@@ -128,7 +142,7 @@ class MihomoVpnService : VpnService(), TunInterface {
             manager.createNotificationChannel(
                 NotificationChannel(
                     NOTIFICATION_CHANNEL,
-                    getString(R.string.app_name),
+                    packageManager.getApplicationLabel(applicationInfo).toString(),
                     NotificationManager.IMPORTANCE_LOW,
                 ),
             )
@@ -140,7 +154,7 @@ class MihomoVpnService : VpnService(), TunInterface {
             Notification.Builder(this)
         }
         val notification = builder
-            .setContentTitle(getString(R.string.app_name))
+            .setContentTitle(packageManager.getApplicationLabel(applicationInfo).toString())
             .setContentText("VPN подключён")
             .setSmallIcon(R.mipmap.ic_launcher)
             .setOngoing(true)
@@ -162,17 +176,6 @@ class MihomoVpnService : VpnService(), TunInterface {
             Clash.stopTun()
         }
     }
-
-    override fun protect(fd: Int) {
-        check(super.protect(fd)) { "Could not protect Mihomo's outbound socket." }
-    }
-
-    override fun resolverProcess(
-        protocol: Int,
-        source: String,
-        target: String,
-        uid: Int,
-    ): String = ""
 
     override fun onRevoke() {
         stopMihomo()
