@@ -1,7 +1,7 @@
 name: Build Android APK with Mihomo
 
 concurrency:
-  group: brew-android-mihomo-${{ github.ref }}
+  group: brew-android-mihomo-${{ github.ref }}-${{ github.sha }}
   cancel-in-progress: true
 
 on:
