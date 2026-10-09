@@ -181,28 +181,75 @@ class AppState extends ChangeNotifier {
     );
   }
 
-  /// Creates an [http.Client] that on Windows uses the system (WinHTTP) TLS
-  /// stack so that certificates trusted by Windows are accepted and proxy
-  /// settings configured in the OS are respected automatically.
-  /// When [allowSelfSigned] is true the certificate check is skipped —
-  /// used as a fallback for subscription servers with custom/self-signed certs.
-  http.Client _makeHttpClient({bool allowSelfSigned = false}) {
-    if (Platform.isWindows) {
-      final ctx = SecurityContext(withTrustedRoots: true);
-      final inner = HttpClient(context: ctx);
-      inner.badCertificateCallback =
-          (X509Certificate cert, String host, int port) => allowSelfSigned;
-      inner.connectionTimeout = const Duration(seconds: 15);
-      return IOClient(inner);
+  /// Resolves [host] over DNS-over-HTTPS. Used when the system resolver can't
+  /// find a host, e.g. when the provider's DNS blocks the subscription domain.
+  Future<InternetAddress?> _resolveDoH(String host) async {
+    final literal = InternetAddress.tryParse(host);
+    if (literal != null) return literal;
+    final doh = HttpClient()..connectionTimeout = const Duration(seconds: 5);
+    try {
+      const endpoints = [
+        'https://1.1.1.1/dns-query',
+        'https://8.8.8.8/resolve',
+      ];
+      for (final base in endpoints) {
+        try {
+          final uri = Uri.parse(
+            base,
+          ).replace(queryParameters: {'name': host, 'type': 'A'});
+          final req = await doh.getUrl(uri).timeout(const Duration(seconds: 5));
+          req.headers.set('accept', 'application/dns-json');
+          final res = await req.close().timeout(const Duration(seconds: 5));
+          if (res.statusCode != 200) continue;
+          final body = await res.transform(utf8.decoder).join();
+          final answers = (jsonDecode(body) as Map)['Answer'] as List? ?? const [];
+          for (final a in answers) {
+            if (a is Map && a['type'] == 1 && a['data'] is String) {
+              return InternetAddress(a['data'] as String);
+            }
+          }
+        } catch (_) {
+          // Try the next resolver.
+        }
+      }
+      return null;
+    } finally {
+      doh.close(force: true);
     }
-    return http.Client();
   }
 
-  Future<(String, http.Response)> _download(
-    String url, {
-    bool allowSelfSigned = false,
-  }) async {
-    final client = _makeHttpClient(allowSelfSigned: allowSelfSigned);
+  /// Makes the HTTP client connect through the system resolver first and fall
+  /// back to DoH. TLS still validates the certificate against the real host
+  /// name, because only the TCP connection target changes.
+  void _installDoHResolver(HttpClient client) {
+    client.connectionFactory = (uri, proxyHost, proxyPort) async {
+      final targetHost = proxyHost ?? uri.host;
+      final port =
+          proxyPort ??
+          (uri.hasPort ? uri.port : (uri.scheme == 'https' ? 443 : 80));
+      InternetAddress? addr;
+      try {
+        final found = await InternetAddress.lookup(targetHost);
+        if (found.isNotEmpty) addr = found.first;
+      } on SocketException {
+        // Fall through to DoH.
+      }
+      addr ??= await _resolveDoH(targetHost);
+      if (addr == null) {
+        throw SocketException('Не удалось найти адрес сервера $targetHost');
+      }
+      return Socket.startConnect(addr, port);
+    };
+  }
+
+  http.Client _makeHttpClient() {
+    final inner = HttpClient()..connectionTimeout = const Duration(seconds: 15);
+    _installDoHResolver(inner);
+    return IOClient(inner);
+  }
+
+  Future<(String, http.Response)> _download(String url) async {
+    final client = _makeHttpClient();
     try {
       final res = await client
           .get(
@@ -216,19 +263,11 @@ class AppState extends ChangeNotifier {
       return (utf8.decode(res.bodyBytes, allowMalformed: true), res);
     } on SocketException catch (e) {
       throw Exception(
-        'Не удалось подключиться к серверу: ${e.message}\n'
-        'Проверьте адрес подписки и доступность сети.',
+        'Не удалось подключиться к серверу подписки: ${e.message}\n'
+        'Проверьте адрес и сеть или вставьте ссылки серверов текстом.',
       );
-    } on HandshakeException {
-      if (!allowSelfSigned) {
-        // Retry once without certificate verification for servers with
-        // self-signed / custom CA certificates (common for private VPN servers).
-        return _download(url, allowSelfSigned: true);
-      }
-      throw Exception(
-        'Ошибка TLS при подключении к серверу.\n'
-        'Сервер использует недопустимый сертификат.',
-      );
+    } on HandshakeException catch (e) {
+      throw Exception('Ошибка TLS при подключении к серверу: ${e.message}');
     } on TimeoutException {
       throw Exception(
         'Сервер не ответил за 20 секунд.\n'
