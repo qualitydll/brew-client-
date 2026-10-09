@@ -15,6 +15,16 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Install SVG converter
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y librsvg2-bin
+
+      - name: Render launcher icon
+        run: |
+          mkdir -p assets
+          rsvg-convert -w 1024 -h 1024 assets/brew_icon.svg > assets/brew_icon.png
+
       - name: Set up Flutter
         uses: subosito/flutter-action@v2
         with:
@@ -23,6 +33,21 @@ jobs:
 
       - name: Generate Android platform files
         run: flutter create --platforms=android --project-name brew .
+
+      - name: Configure Android launcher icon
+        run: |
+          flutter pub add --dev flutter_launcher_icons
+          cat > flutter_launcher_icons.yaml <<'EOF'
+          flutter_launcher_icons:
+            android: true
+            image_path: "assets/brew_icon.png"
+            adaptive_icon_background: "#171717"
+            adaptive_icon_foreground: "assets/brew_icon.png"
+          EOF
+          dart run flutter_launcher_icons
+
+      - name: Set app display name
+        run: sed -i 's/android:label="brew"/android:label="Brew"/' android/app/src/main/AndroidManifest.xml
 
       - name: Get dependencies
         run: flutter pub get
