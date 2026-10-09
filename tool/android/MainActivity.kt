@@ -81,7 +81,7 @@ class MainActivity : FlutterActivity() {
                         val intent = Intent(this, BrewVpnService::class.java).apply {
                             action = BrewVpnService.ACTION_STOP
                         }
-                        if (Build.VERSION.SDK_INT >= 26) startForegroundService(intent) else startService(intent)
+                        startService(intent)
                         result.success(true)
                     }
                     else -> result.notImplemented()
