@@ -52,7 +52,11 @@ Map<String, dynamic>? _tryParseClashConfig(String text) {
   try {
     final doc = yamlToPlain(loadYaml(text));
     if (doc is Map<String, dynamic> &&
-        (doc.containsKey('proxies') || doc.containsKey('proxy-providers'))) {
+        (doc.containsKey('proxies') ||
+            doc.containsKey('proxy-providers') ||
+            doc.containsKey('proxy-groups') ||
+            doc.containsKey('rule-providers') ||
+            doc.containsKey('rules'))) {
       return doc;
     }
   } catch (_) {}
@@ -69,7 +73,7 @@ ParsedSubscription parseSubscription(String content) {
   final looksLikeConfig =
       text.startsWith('{') ||
       RegExp(
-        r'^(proxies|proxy-providers)\s*:',
+        r'^(mixed-port|port|socks-port|redir-port|tproxy-port|proxies|proxy-providers|proxy-groups|rules|rule-providers|dns|tun|mode|listeners|hosts|sniffer|geodata-mode|geox-url)\s*:',
         multiLine: true,
       ).hasMatch(text);
   if (looksLikeConfig) {
