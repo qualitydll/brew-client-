@@ -1,0 +1,59 @@
+name: Build Android APK with Mihomo
+
+on:
+  push:
+    branches: [android-mihomo-integration]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build-android:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+
+      - name: Generate Android project
+        run: flutter create --platforms=android --project-name brew .
+
+      - name: Download and verify Mihomo for Android arm64
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p assets/bin
+          curl --fail --location --retry 3 \
+            https://github.com/MetaCubeX/mihomo/releases/download/v1.19.32/mihomo-android-arm64-v8-v1.19.32.gz \
+            --output /tmp/mihomo.gz
+          echo "de00bc53ed151636ca078c812a82a5315687d8d52164db230f1935b2a37904f6  /tmp/mihomo.gz" | sha256sum --check
+          gzip --decompress --stdout /tmp/mihomo.gz > assets/bin/mihomo-android-arm64-v8
+          test -s assets/bin/mihomo-android-arm64-v8
+          chmod 755 assets/bin/mihomo-android-arm64-v8
+
+      - name: Get dependencies
+        run: flutter pub get
+
+      - name: Analyze Dart code
+        run: flutter analyze --no-pub
+
+      - name: Build arm64 APK
+        run: flutter build apk --release --target-platform android-arm64
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: brew-android-arm64-mihomo-apk
+          path: build/app/outputs/flutter-apk/app-release.apk
+          if-no-files-found: error
