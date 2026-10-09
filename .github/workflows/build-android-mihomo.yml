@@ -155,27 +155,17 @@ jobs:
 
       - name: Verify bundled core and build
         run: |
+          set -euo pipefail
           test -s android/app/src/main/jniLibs/arm64-v8a/libmihomo.so
           grep -q 'mihomoPath' android/app/src/main/kotlin/com/example/brew/MainActivity.kt
-          # flutter create generates a placeholder MyApp test that does not match Brew's app.
-          # Keep CI focused on validating and compiling the Android release APK.
           flutter build apk --release --target-platform android-arm64
           APK=build/app/outputs/flutter-apk/app-release.apk
-          echo "Checking Mihomo is actually inside the final APK..."
-          unzip -l "$APK" | grep -E 'lib/arm64-v8a/libmihomo\\.so
-
-      - name: Upload APK
-        uses: actions/upload-artifact@v4
-        with:
-          name: brew-android-arm64-mihomo-apk
-          path: build/app/outputs/flutter-apk/app-release.apk
-          if-no-files-found: error
-          retention-days: 14
-
+          echo 'Checking Mihomo inside the final APK...'
+          unzip -l "$APK" | grep -F 'lib/arm64-v8a/libmihomo.so'
           unzip -p "$APK" lib/arm64-v8a/libmihomo.so > /tmp/apk-mihomo
           test -s /tmp/apk-mihomo
           file /tmp/apk-mihomo
-          echo "Mihomo payload is present in the final APK."
+          echo 'Mihomo payload is present in the final APK.'
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
