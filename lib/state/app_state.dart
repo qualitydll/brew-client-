@@ -5,6 +5,7 @@ import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
+import 'package:http/io_client.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -180,17 +181,62 @@ class AppState extends ChangeNotifier {
     );
   }
 
-  Future<(String, http.Response)> _download(String url) async {
-    final res = await http
-        .get(
-          Uri.parse(url),
-          headers: {'User-Agent': 'clash.meta/mihomo brew/0.1'},
-        )
-        .timeout(const Duration(seconds: 20));
-    if (res.statusCode >= 400) {
-      throw Exception('Сервер вернул ${res.statusCode}');
+  /// Creates an [http.Client] that on Windows uses the system (WinHTTP) TLS
+  /// stack so that certificates trusted by Windows are accepted and proxy
+  /// settings configured in the OS are respected automatically.
+  /// When [allowSelfSigned] is true the certificate check is skipped —
+  /// used as a fallback for subscription servers with custom/self-signed certs.
+  http.Client _makeHttpClient({bool allowSelfSigned = false}) {
+    if (Platform.isWindows) {
+      final ctx = SecurityContext(withTrustedRoots: true);
+      final inner = HttpClient(context: ctx)
+        ..badCertificateCallback =
+            (X509Certificate cert, String host, int port) => allowSelfSigned
+        ..connectionTimeout = const Duration(seconds: 15);
+      return IOClient(inner);
     }
-    return (utf8.decode(res.bodyBytes, allowMalformed: true), res);
+    return http.Client();
+  }
+
+  Future<(String, http.Response)> _download(
+    String url, {
+    bool allowSelfSigned = false,
+  }) async {
+    final client = _makeHttpClient(allowSelfSigned: allowSelfSigned);
+    try {
+      final res = await client
+          .get(
+            Uri.parse(url),
+            headers: {'User-Agent': 'clash.meta/mihomo brew/0.1'},
+          )
+          .timeout(const Duration(seconds: 20));
+      if (res.statusCode >= 400) {
+        throw Exception('Сервер вернул ${res.statusCode}');
+      }
+      return (utf8.decode(res.bodyBytes, allowMalformed: true), res);
+    } on SocketException catch (e) {
+      throw Exception(
+        'Не удалось подключиться к серверу: ${e.message}\n'
+        'Проверьте адрес подписки и доступность сети.',
+      );
+    } on HandshakeException {
+      if (!allowSelfSigned) {
+        // Retry once without certificate verification for servers with
+        // self-signed / custom CA certificates (common for private VPN servers).
+        return _download(url, allowSelfSigned: true);
+      }
+      throw Exception(
+        'Ошибка TLS при подключении к серверу.\n'
+        'Сервер использует недопустимый сертификат.',
+      );
+    } on TimeoutException {
+      throw Exception(
+        'Сервер не ответил за 20 секунд.\n'
+        'Проверьте адрес подписки и доступность сети.',
+      );
+    } finally {
+      client.close();
+    }
   }
 
   String? _titleFromHeaders(http.Response res, String url) {
