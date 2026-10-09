@@ -35,7 +35,7 @@ jobs:
           set -euo pipefail
           mkdir -p assets/bin
           curl --fail --location --retry 3 \
-            https://github.com/MetaCubeX/mihomo/releases/download/v1.19.32/mihomo-android-arm64-v8-v1.19.32.gz \
+            https://github.com/MetaCubeX/mihomo/releases/download/v1.19.31/mihomo-android-arm64-v8-v1.19.31.gz \
             --output /tmp/mihomo.gz
           echo "de00bc53ed151636ca078c812a82a5315687d8d52164db230f1935b2a37904f6  /tmp/mihomo.gz" | sha256sum --check
           gzip --decompress --stdout /tmp/mihomo.gz > assets/bin/mihomo-android-arm64-v8
