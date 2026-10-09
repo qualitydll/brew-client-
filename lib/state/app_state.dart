@@ -345,6 +345,11 @@ class AppState extends ChangeNotifier {
     tun: !Platform.isAndroid && settings.tun,
     allowLan: settings.allowLan,
     externalTun: Platform.isAndroid,
+    userRules: settings.userRules
+        .split('\n')
+        .map((rule) => rule.trim())
+        .where((rule) => rule.isNotEmpty)
+        .toList(),
   );
 
   Future<void> connect() async {
@@ -694,6 +699,12 @@ class AppState extends ChangeNotifier {
       viewGroup = null;
       await refreshProxies();
     }
+  }
+
+  Future<void> setUserRules(String rules) async {
+    settings.userRules = rules;
+    notifyListeners();
+    if (isConnected) await reconnect();
   }
 
   Future<void> setTun(bool v) async {

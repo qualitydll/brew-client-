@@ -64,6 +64,14 @@ jobs:
     - name: Build Android APK
       run: flutter build apk --release
 
+    - name: Test installed Mihomo native loading
+      uses: reactivecircus/android-emulator-runner@v2
+      with:
+        api-level: 35
+        arch: x86_64
+        disable-animations: true
+        script: cd android && ./gradlew connectedDebugAndroidTest
+
     - name: Verify embedded Mihomo ABIs
       shell: bash
       run: |

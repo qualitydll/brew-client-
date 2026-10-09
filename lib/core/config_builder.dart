@@ -13,6 +13,7 @@ class CoreOptions {
     required this.tun,
     required this.allowLan,
     this.externalTun = false,
+    this.userRules = const [],
   });
 
   final int mixedPort;
@@ -22,6 +23,7 @@ class CoreOptions {
   final bool tun;
   final bool allowLan;
   final bool externalTun;
+  final List<String> userRules;
 }
 
 const _privateRules = [
@@ -94,6 +96,15 @@ Map<String, dynamic> applyCoreOptions(
   cfg['tcp-concurrent'] = true;
   cfg['find-process-mode'] = 'off';
   cfg['profile'] = {'store-selected': true, 'store-fake-ip': true};
+
+  if (o.userRules.isNotEmpty) {
+    // Mihomo uses first-match semantics, so custom rules take precedence.
+    final providerRules = cfg['rules'];
+    cfg['rules'] = [
+      ...o.userRules,
+      if (providerRules is List) ...providerRules,
+    ];
+  }
 
   if (o.tun) {
     cfg['tun'] = {

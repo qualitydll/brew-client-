@@ -47,6 +47,9 @@ class Settings {
   String get mode => _prefs.getString('mode') ?? 'rule';
   set mode(String v) => _prefs.setString('mode', v);
 
+  String get userRules => _prefs.getString('userRules') ?? '';
+  set userRules(String v) => _prefs.setString('userRules', v);
+
   bool get tun => _prefs.getBool('tun') ?? false;
   set tun(bool v) => _prefs.setBool('tun', v);
 

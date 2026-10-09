@@ -134,11 +134,7 @@ class MainActivity : FlutterActivity() {
         }
 
     private fun loadMihomo() {
-        Clash.load(applicationInfo.nativeLibraryDir)
-        Clash.assertReady()
-        check(Clash.bridgeABI() == Clash.EXPECTED_BRIDGE_ABI) {
-            "Mihomo JNI bridge ABI mismatch."
-        }
+        MihomoRuntime.load(this)
     }
 
     @Suppress("DEPRECATION")

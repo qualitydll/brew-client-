@@ -84,11 +84,7 @@ class MihomoVpnService : VpnService() {
     }
 
     private fun startMihomo(configPath: String) {
-        Clash.load(applicationInfo.nativeLibraryDir)
-        Clash.assertReady()
-        check(Clash.bridgeABI() == Clash.EXPECTED_BRIDGE_ABI) {
-            "Mihomo JNI bridge ABI mismatch."
-        }
+        MihomoRuntime.load(this)
 
         val homeDir = File(configPath).parentFile
             ?: error("Mihomo config has no parent directory.")

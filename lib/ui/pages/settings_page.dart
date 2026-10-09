@@ -146,6 +146,25 @@ class SettingsPage extends StatelessWidget {
               }
             },
           ),
+          ListTile(
+            contentPadding: EdgeInsets.zero,
+            title: const Text('Правила маршрутизации'),
+            subtitle: Text(
+              s.userRules.trim().isEmpty
+                  ? 'Собственные правила отключены'
+                  : '${s.userRules.split('\n').where((rule) => rule.trim().isNotEmpty).length} '
+                        'правил — применяются раньше правил подписки',
+            ),
+            trailing: const Icon(Icons.edit_rounded),
+            onTap: () async {
+              final rules = await _promptMultiline(
+                context,
+                'Правила маршрутизации',
+                s.userRules,
+              );
+              if (rules != null) await state.setUserRules(rules);
+            },
+          ),
         ],
       ),
       _Section(
@@ -230,6 +249,45 @@ Future<String?> _prompt(BuildContext context, String title, String initial) {
           controller: c,
           autofocus: true,
           onSubmitted: (v) => Navigator.pop(context, v),
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('Отмена'),
+        ),
+        FilledButton(
+          onPressed: () => Navigator.pop(context, c.text),
+          child: const Text('Сохранить'),
+        ),
+      ],
+    ),
+  );
+}
+
+Future<String?> _promptMultiline(
+  BuildContext context,
+  String title,
+  String initial,
+) {
+  final c = TextEditingController(text: initial);
+  return showDialog<String>(
+    context: context,
+    builder: (context) => AlertDialog(
+      title: Text(title),
+      content: SizedBox(
+        width: 520,
+        child: TextField(
+          controller: c,
+          autofocus: true,
+          minLines: 5,
+          maxLines: 12,
+          decoration: const InputDecoration(
+            hintText: 'DOMAIN-SUFFIX,example.com,PROXY',
+            helperText:
+                'Одна Mihomo rule на строку. Они проверяются раньше правил подписки.',
+            border: OutlineInputBorder(),
+          ),
         ),
       ),
       actions: [
