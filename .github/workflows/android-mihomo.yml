@@ -61,9 +61,11 @@ jobs:
           dependency = 'implementation(files("libs/libmihomo-android-v0.3.5.aar"))'
           if dependency not in text:
               marker = "dependencies {"
-              if marker not in text:
-                  raise SystemExit("Could not find dependencies block in app Gradle file")
-              text = text.replace(marker, marker + "\n    " + dependency, 1)
+              if marker in text:
+                  text = text.replace(marker, marker + "\n    " + dependency, 1)
+              else:
+                  # Newer Flutter templates may omit a dependencies block entirely.
+                  text += "\n\ndependencies {\n    " + dependency + "\n}\n"
           if "useLegacyPackaging" not in text:
               marker = "defaultConfig {"
               pos = text.find(marker)
