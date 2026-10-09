@@ -1,0 +1,126 @@
+name: Build Android APK with bundled Mihomo
+
+on:
+  push:
+    branches: [fix/android-bundled-mihomo]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install SVG converter
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y librsvg2-bin
+
+      - name: Render launcher icon
+        run: |
+          mkdir -p assets
+          rsvg-convert -w 1024 -h 1024 assets/brew_icon.svg > assets/brew_icon.png
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - name: Generate Android platform files
+        run: flutter create --platforms=android --project-name brew .
+
+      - name: Bundle Android ARM64 Mihomo
+        run: |
+          mkdir -p android/app/src/main/jniLibs/arm64-v8a
+          curl -fL --retry 3 \
+            https://github.com/MetaCubeX/mihomo/releases/download/v1.19.32/mihomo-android-arm64-v8-v1.19.32.gz \
+            -o /tmp/mihomo.gz
+          gzip -dc /tmp/mihomo.gz > android/app/src/main/jniLibs/arm64-v8a/libmihomo.so
+          chmod 755 android/app/src/main/jniLibs/arm64-v8a/libmihomo.so
+          file android/app/src/main/jniLibs/arm64-v8a/libmihomo.so
+
+      - name: Add native path channel
+        run: |
+          mkdir -p android/app/src/main/kotlin/com/example/brew
+          cat > android/app/src/main/kotlin/com/example/brew/MainActivity.kt <<'EOF'
+          package com.example.brew
+
+          import io.flutter.embedding.android.FlutterActivity
+          import io.flutter.embedding.engine.FlutterEngine
+          import io.flutter.plugin.common.MethodChannel
+          import java.io.File
+
+          class MainActivity : FlutterActivity() {
+              override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
+                  super.configureFlutterEngine(flutterEngine)
+                  MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "brew/native")
+                      .setMethodCallHandler { call, result ->
+                          if (call.method == "mihomoPath") {
+                              val binary = File(applicationInfo.nativeLibraryDir, "libmihomo.so")
+                              if (binary.isFile) result.success(binary.absolutePath)
+                              else result.error("MIHOMO_MISSING", "Bundled Mihomo binary not found", null)
+                          } else {
+                              result.notImplemented()
+                          }
+                      }
+              }
+          }
+          EOF
+
+      - name: Configure Android launcher icon and manifest
+        run: |
+          flutter pub add --dev flutter_launcher_icons
+          cat > flutter_launcher_icons.yaml <<'EOF'
+          flutter_launcher_icons:
+            android: true
+            image_path: "assets/brew_icon.png"
+            adaptive_icon_background: "#171717"
+            adaptive_icon_foreground: "assets/brew_icon.png"
+          EOF
+          dart run flutter_launcher_icons
+          python3 - <<'PY'
+          from pathlib import Path
+          path = Path("android/app/src/main/AndroidManifest.xml")
+          text = path.read_text()
+          if "android.permission.INTERNET" not in text:
+              i = text.find(">", text.find("<manifest"))
+              text = text[:i+1] + '\n    <uses-permission android:name="android.permission.INTERNET" />' + text[i+1:]
+          start = text.find("<application")
+          end = text.find(">", start)
+          app = text[start:end+1]
+          if 'android:label="' in app:
+              import re
+              app = re.sub(r'android:label="[^"]*"', 'android:label="brew"', app)
+          else:
+              app = app[:-1] + ' android:label="brew">'
+          if 'android:icon="' in app:
+              import re
+              app = re.sub(r'android:icon="[^"]*"', 'android:icon="@mipmap/ic_launcher"', app)
+          else:
+              app = app[:-1] + ' android:icon="@mipmap/ic_launcher">'
+          text = text[:start] + app + text[end+1:]
+          path.write_text(text)
+          PY
+
+      - name: Get dependencies
+        run: flutter pub get
+
+      - name: Verify bundled core and build
+        run: |
+          test -s android/app/src/main/jniLibs/arm64-v8a/libmihomo.so
+          grep -q 'mihomoPath' android/app/src/main/kotlin/com/example/brew/MainActivity.kt
+          flutter test
+          flutter build apk --release --target-platform android-arm64
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: brew-android-arm64-mihomo-apk
+          path: build/app/outputs/flutter-apk/app-release.apk
+          if-no-files-found: error
+          retention-days: 14
