@@ -15,13 +15,13 @@ class ProfilesPage extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         PageHeader(
-          title: 'Подписки',
-          subtitle: 'Ссылки на подписку, Clash YAML или ключи vless / vmess / trojan / ss / hy2 / tuic',
+          title: 'подписки',
+          subtitle: 'ссылки на подписку, clash yaml или ключи vless / vmess / trojan / ss / hy2 / tuic',
           actions: [
             FilledButton.icon(
               onPressed: () => showAddProfileDialog(context),
               icon: const Icon(Icons.add_rounded),
-              label: const Text('Добавить'),
+              label: const Text('добавить'),
             ),
           ],
         ),
@@ -80,17 +80,17 @@ class _Empty extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 20),
-            Text('Пока пусто', style: Theme.of(context).textTheme.titleLarge),
+            Text('пока пусто', style: Theme.of(context).textTheme.titleLarge),
             const SizedBox(height: 6),
             Text(
-              'Вставьте ссылку от вашего VPN-провайдера',
+              'вставьте ссылку от вашего vpn-провайдера',
               style: TextStyle(color: scheme.onSurfaceVariant),
             ),
             const SizedBox(height: 20),
             FilledButton.icon(
               onPressed: () => showAddProfileDialog(context),
               icon: const Icon(Icons.content_paste_rounded),
-              label: const Text('Добавить подписку'),
+              label: const Text('добавить подписку'),
             ),
           ],
         ),
@@ -111,7 +111,7 @@ class _ProfileTile extends StatelessWidget {
     final t = Theme.of(context).textTheme;
     final pr = profile;
     final host = pr.url == null
-        ? 'Локальный список'
+        ? 'локальный список'
         : Uri.tryParse(pr.url!)?.host ?? pr.url!;
     return AnimatedContainer(
       duration: const Duration(milliseconds: 450),
@@ -191,15 +191,15 @@ class _ProfileTile extends StatelessWidget {
                 ),
                 if (pr.isRemote)
                   IconButton(
-                    tooltip: 'Обновить',
+                    tooltip: 'обновить',
                     onPressed: () async {
                       try {
                         await state.updateProfile(pr);
                         if (context.mounted) {
-                          showSnack(context, 'Подписка обновлена');
+                          showSnack(context, 'подписка обновлена');
                         }
                       } catch (e) {
-                        if (context.mounted) showSnack(context, 'Ошибка: $e');
+                        if (context.mounted) showSnack(context, 'ошибка: $e');
                       }
                     },
                     icon: const Icon(Icons.refresh_rounded),
@@ -207,14 +207,14 @@ class _ProfileTile extends StatelessWidget {
                 PopupMenuButton<String>(
                   onSelected: (v) async {
                     if (v == 'rename') {
-                      final name = await _prompt(context, 'Название', pr.name);
+                      final name = await _prompt(context, 'название', pr.name);
                       if (name != null && name.trim().isNotEmpty) {
                         await state.renameProfile(pr, name.trim());
                       }
                     } else if (v == 'copy' && pr.url != null) {
                       await Clipboard.setData(ClipboardData(text: pr.url!));
                       if (context.mounted) {
-                        showSnack(context, 'Ссылка скопирована');
+                        showSnack(context, 'ссылка скопирована');
                       }
                     } else if (v == 'delete') {
                       await state.deleteProfile(pr);
@@ -223,16 +223,16 @@ class _ProfileTile extends StatelessWidget {
                   itemBuilder: (_) => [
                     const PopupMenuItem(
                       value: 'rename',
-                      child: Text('Переименовать'),
+                      child: Text('переименовать'),
                     ),
                     if (pr.url != null)
                       const PopupMenuItem(
                         value: 'copy',
-                        child: Text('Скопировать ссылку'),
+                        child: Text('скопировать ссылку'),
                       ),
                     const PopupMenuItem(
                       value: 'delete',
-                      child: Text('Удалить'),
+                      child: Text('удалить'),
                     ),
                   ],
                 ),
@@ -259,11 +259,11 @@ Future<String?> _prompt(BuildContext context, String title, String initial) {
       actions: [
         TextButton(
           onPressed: () => Navigator.pop(context),
-          child: const Text('Отмена'),
+          child: const Text('отмена'),
         ),
         FilledButton(
           onPressed: () => Navigator.pop(context, c.text),
-          child: const Text('Сохранить'),
+          child: const Text('сохранить'),
         ),
       ],
     ),
@@ -336,7 +336,7 @@ class _AddDialogState extends State<_AddDialog> {
     final scheme = Theme.of(context).colorScheme;
     return AlertDialog(
       icon: Icon(Icons.add_link_rounded, color: scheme.primary, size: 32),
-      title: const Text('Новая подписка'),
+      title: const Text('новая подписка'),
       content: SizedBox(
         width: 480,
         child: Column(
@@ -350,7 +350,7 @@ class _AddDialogState extends State<_AddDialog> {
               decoration: InputDecoration(
                 hintText: 'https://… или vless://…, по одной ссылке на строку',
                 suffixIcon: IconButton(
-                  tooltip: 'Вставить',
+                  tooltip: 'вставить',
                   onPressed: _paste,
                   icon: const Icon(Icons.content_paste_rounded),
                 ),
@@ -360,7 +360,7 @@ class _AddDialogState extends State<_AddDialog> {
             TextField(
               controller: _name,
               decoration: const InputDecoration(
-                hintText: 'Название (необязательно)',
+                hintText: 'название (необязательно)',
               ),
             ),
             AnimatedSize(
@@ -381,7 +381,7 @@ class _AddDialogState extends State<_AddDialog> {
       actions: [
         TextButton(
           onPressed: () => Navigator.pop(context),
-          child: const Text('Отмена'),
+          child: const Text('отмена'),
         ),
         FilledButton(
           onPressed: _busy ? null : _submit,
@@ -393,7 +393,7 @@ class _AddDialogState extends State<_AddDialog> {
                     height: 18,
                     child: CircularProgressIndicator(strokeWidth: 2),
                   )
-                : const Text('Добавить'),
+                : const Text('добавить'),
           ),
         ),
       ],
