@@ -218,7 +218,7 @@ class AppState extends ChangeNotifier {
       if (res.statusCode >= 400) {
         if (res.statusCode == 404) {
           throw Exception(
-            'Сервер вернул 404 даже после повторного запроса с обычным браузерным User-Agent.\\n'
+            'Сервер вернул 404 даже после повторного запроса с обычным браузерным User-Agent.\n'
             'Клиент повторил запрос автоматически, но сервер всё равно не нашёл путь. '
             'Проверьте адрес или создайте новую ссылку у провайдера. '
             'Полный URL и токен никому не отправляйте.',
@@ -227,20 +227,20 @@ class AppState extends ChangeNotifier {
         final body = utf8.decode(res.bodyBytes, allowMalformed: true);
         final snippet = body.length > 300 ? body.substring(0, 300) : body;
         throw Exception(
-          'Сервер вернул ${res.statusCode}\\nОтвет: $snippet',
+          'Сервер вернул ${res.statusCode}\nОтвет: $snippet',
         );
       }
       return (utf8.decode(res.bodyBytes, allowMalformed: true), res);
     } on SocketException catch (e) {
       throw Exception(
-        'Не удалось подключиться к серверу подписки: ${e.message}\\n'
+        'Не удалось подключиться к серверу подписки: ${e.message}\n'
         'Проверьте адрес и сеть или вставьте ссылки серверов текстом.',
       );
     } on HandshakeException catch (e) {
       throw Exception('Ошибка TLS при подключении к серверу: ${e.message}');
     } on TimeoutException {
       throw Exception(
-        'Сервер не ответил за 20 секунд.\\n'
+        'Сервер не ответил за 20 секунд.\n'
         'Проверьте адрес подписки и доступность сети.',
       );
     } finally {
