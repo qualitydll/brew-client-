@@ -4,6 +4,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:http/http.dart' as http;
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
@@ -71,6 +72,8 @@ class LogStore extends ChangeNotifier {
 }
 
 class AppState extends ChangeNotifier {
+  static const MethodChannel _androidVpn = MethodChannel('brew/native');
+
   late final Settings settings;
   late final String dataDir;
   final core = MihomoCore();
@@ -380,7 +383,7 @@ class AppState extends ChangeNotifier {
       notifyListeners();
       return;
     }
-    if (corePath == null) {
+    if (!Platform.isAndroid && corePath == null) {
       error = 'Не найдено ядро mihomo. Укажите путь в настройках.';
       notifyListeners();
       return;
@@ -397,21 +400,50 @@ class AppState extends ChangeNotifier {
         _options,
       );
       final configFile = File(p.join(dataDir, 'home', 'config.yaml'));
-      skipped = await _writeValidConfig(config, configFile);
-      for (final s in skipped) {
-        logs.add(LogEntry('warning', 'Сервер пропущен: $s'));
-      }
-
       final api = MihomoApi(port: settings.apiPort, secret: settings.secret);
       _api = api;
-      await core.start(
-        binary: corePath!,
-        homeDir: p.join(dataDir, 'home'),
-        configPath: configFile.path,
-        api: api,
-      );
-      if (settings.systemProxy && !settings.tun) {
-        await SystemProxy.enable(settings.mixedPort);
+
+      if (Platform.isAndroid) {
+        // Android must run Mihomo in-process so it can consume the TUN fd
+        // created by VpnService. A standalone executable cannot do this.
+        await configFile.writeAsString(
+          const JsonEncoder.withIndent('  ').convert(config),
+        );
+        await _androidVpn.invokeMethod<void>('startVpn', {
+          'homeDir': configFile.parent.path,
+        });
+
+        final deadline = DateTime.now().add(const Duration(seconds: 15));
+        var apiReady = false;
+        while (DateTime.now().isBefore(deadline)) {
+          try {
+            await api.version();
+            apiReady = true;
+            break;
+          } catch (_) {
+            await Future<void>.delayed(const Duration(milliseconds: 200));
+          }
+        }
+        if (!apiReady) {
+          throw Exception(
+            'VPN-сервис запустился, но API Mihomo не ответил. '
+            'Проверьте журнал подключения.',
+          );
+        }
+      } else {
+        skipped = await _writeValidConfig(config, configFile);
+        for (final s in skipped) {
+          logs.add(LogEntry('warning', 'Сервер пропущен: $s'));
+        }
+        await core.start(
+          binary: corePath!,
+          homeDir: p.join(dataDir, 'home'),
+          configPath: configFile.path,
+          api: api,
+        );
+        if (settings.systemProxy && !settings.tun) {
+          await SystemProxy.enable(settings.mixedPort);
+        }
       }
       _subscribeStreams(api);
       await refreshProxies();
@@ -424,7 +456,13 @@ class AppState extends ChangeNotifier {
       connectedAt = DateTime.now();
       notifyListeners();
     } catch (e) {
-      await core.stop();
+      if (Platform.isAndroid) {
+        try {
+          await _androidVpn.invokeMethod<void>('stopVpn');
+        } catch (_) {}
+      } else {
+        await core.stop();
+      }
       _api = null;
       status = ConnStatus.disconnected;
       error = e.toString();
@@ -479,8 +517,12 @@ class AppState extends ChangeNotifier {
     if (status == ConnStatus.disconnected) return;
     status = ConnStatus.disconnecting;
     notifyListeners();
-    if (settings.systemProxy) await SystemProxy.disable();
-    await core.stop();
+    if (Platform.isAndroid) {
+      await _androidVpn.invokeMethod<void>('stopVpn');
+    } else {
+      if (settings.systemProxy) await SystemProxy.disable();
+      await core.stop();
+    }
     await Future<void>.delayed(const Duration(milliseconds: 400));
     _afterStopped();
   }
@@ -505,8 +547,14 @@ class AppState extends ChangeNotifier {
 
   Future<void> shutdown() async {
     if (status != ConnStatus.disconnected) {
-      if (settings.systemProxy) await SystemProxy.disable();
-      await core.stop();
+      if (Platform.isAndroid) {
+        try {
+          await _androidVpn.invokeMethod<void>('stopVpn');
+        } catch (_) {}
+      } else {
+        if (settings.systemProxy) await SystemProxy.disable();
+        await core.stop();
+      }
     }
   }
 
