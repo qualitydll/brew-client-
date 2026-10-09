@@ -56,18 +56,74 @@ jobs:
           import java.io.File
 
           class MainActivity : FlutterActivity() {
+              private var vpnPermissionResult: MethodChannel.Result? = null
+
               override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
                   super.configureFlutterEngine(flutterEngine)
                   MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "brew/native")
                       .setMethodCallHandler { call, result ->
-                          if (call.method == "mihomoPath") {
-                              val binary = File(applicationInfo.nativeLibraryDir, "libmihomo.so")
-                              if (binary.isFile) result.success(binary.absolutePath)
-                              else result.error("MIHOMO_MISSING", "Bundled Mihomo binary not found", null)
-                          } else {
-                              result.notImplemented()
+                          when (call.method) {
+                              "mihomoPath" -> {
+                                  val binary = File(applicationInfo.nativeLibraryDir, "libmihomo.so")
+                                  if (binary.isFile) result.success(binary.absolutePath)
+                                  else result.error("MIHOMO_MISSING", "Bundled Mihomo binary not found", null)
+                              }
+                              "prepareVpn" -> {
+                                  if (vpnPermissionResult != null) {
+                                      result.error("VPN_REQUEST_PENDING", "VPN permission request is already pending", null)
+                                      return@setMethodCallHandler
+                                  }
+                                  val intent = android.net.VpnService.prepare(this)
+                                  if (intent == null) {
+                                      startService(android.content.Intent(this, BrewVpnService::class.java))
+                                      result.success(true)
+                                  } else {
+                                      vpnPermissionResult = result
+                                      startActivityForResult(intent, VPN_REQUEST_CODE)
+                                  }
+                              }
+                              else -> result.notImplemented()
                           }
                       }
+              }
+
+              @Deprecated("Deprecated in Android")
+              override fun onActivityResult(requestCode: Int, resultCode: Int, data: android.content.Intent?) {
+                  super.onActivityResult(requestCode, resultCode, data)
+                  if (requestCode != VPN_REQUEST_CODE) return
+                  val pending = vpnPermissionResult ?: return
+                  vpnPermissionResult = null
+                  if (resultCode == RESULT_OK) {
+                      try {
+                          startService(android.content.Intent(this, BrewVpnService::class.java))
+                          pending.success(true)
+                      } catch (e: Exception) {
+                          pending.error("VPN_SERVICE_START_FAILED", e.message, null)
+                      }
+                  } else {
+                      pending.success(false)
+                  }
+              }
+
+              companion object {
+                  private const val VPN_REQUEST_CODE = 7304
+              }
+          }
+          EOF
+
+      - name: Add Android VPN service
+        run: |
+          cat > android/app/src/main/kotlin/com/example/brew/BrewVpnService.kt <<'EOF'
+          package com.example.brew
+
+          import android.net.VpnService
+          import android.content.Intent
+
+          class BrewVpnService : VpnService() {
+              override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+                  // Permission and service lifecycle are owned by Android.
+                  // Mihomo is launched by Flutter only after VPN consent succeeds.
+                  return START_NOT_STICKY
               }
           }
           EOF
@@ -90,6 +146,22 @@ jobs:
           if "android.permission.INTERNET" not in text:
               i = text.find(">", text.find("<manifest"))
               text = text[:i+1] + '\n    <uses-permission android:name="android.permission.INTERNET" />' + text[i+1:]
+          # Register the VPN service so Android can show its system consent dialog.
+          service = '''
+              <service
+                  android:name=".BrewVpnService"
+                  android:permission="android.permission.BIND_VPN_SERVICE"
+                  android:exported="false">
+                  <intent-filter>
+                      <action android:name="android.net.VpnService" />
+                  </intent-filter>
+              </service>
+          '''
+          if "android.net.VpnService" not in text:
+              end_manifest = text.rfind("</application>")
+              if end_manifest < 0:
+                  raise SystemExit("Could not find application closing tag")
+              text = text[:end_manifest] + service + "\\n" + text[end_manifest:]
           start = text.find("<application")
           end = text.find(">", start)
           app = text[start:end+1]
