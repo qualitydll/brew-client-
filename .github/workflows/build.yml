@@ -33,6 +33,7 @@ jobs:
 
   android:
     runs-on: ubuntu-latest
+    timeout-minutes: 40
 
     steps:
     - uses: actions/checkout@v4
@@ -51,7 +52,7 @@ jobs:
     - name: Setup Android SDK
       uses: android-actions/setup-android@v3
       with:
-        packages: 'platform-tools platforms;android-36 build-tools;36.0.0'
+        packages: 'platform-tools platforms;android-36 build-tools;36.0.0 emulator system-images;android-35;google_apis;x86_64'
 
     - name: Get dependencies
       run: flutter pub get
@@ -64,13 +65,43 @@ jobs:
     - name: Build Android APK
       run: flutter build apk --release
 
+    - name: Boot Android emulator
+      shell: bash
+      run: |
+        set -euo pipefail
+        echo no | avdmanager create avd --force \
+          --name mihomo-ci \
+          --package 'system-images;android-35;google_apis;x86_64'
+        emulator -avd mihomo-ci -no-window -gpu swiftshader_indirect \
+          -no-snapshot -no-audio -no-boot-anim \
+          > "$RUNNER_TEMP/mihomo-emulator.log" 2>&1 &
+        echo "$!" > "$RUNNER_TEMP/mihomo-emulator.pid"
+
+        if ! timeout 300s bash -c '
+          until [[ "$(adb shell getprop sys.boot_completed 2>/dev/null | tr -d "\r")" == "1" ]]; do
+            sleep 2
+          done
+        ' >/dev/null 2>&1; then
+          echo "::error::Android emulator did not boot within 5 minutes."
+          tail -n 80 "$RUNNER_TEMP/mihomo-emulator.log"
+          exit 1
+        fi
+
+        adb shell settings put global window_animation_scale 0 >/dev/null 2>&1
+        adb shell settings put global transition_animation_scale 0 >/dev/null 2>&1
+        adb shell settings put global animator_duration_scale 0 >/dev/null 2>&1
+
     - name: Test installed Mihomo native loading
-      uses: reactivecircus/android-emulator-runner@v2
-      with:
-        api-level: 35
-        arch: x86_64
-        disable-animations: true
-        script: cd android && ./gradlew connectedDebugAndroidTest
+      run: cd android && ./gradlew connectedDebugAndroidTest --no-daemon
+
+    - name: Stop Android emulator
+      if: always()
+      shell: bash
+      run: |
+        if [[ -f "$RUNNER_TEMP/mihomo-emulator.pid" ]]; then
+          kill "$(cat "$RUNNER_TEMP/mihomo-emulator.pid")" 2>/dev/null || true
+        fi
+        adb -s emulator-5554 emu kill >/dev/null 2>&1 || true
 
     - name: Verify embedded Mihomo ABIs
       shell: bash
