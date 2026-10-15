@@ -728,7 +728,11 @@ class AppState extends ChangeNotifier {
       ),
     );
     for (final n in nodes.values) {
-      if (n.history != null && !delays.containsKey(n.name)) {
+      // A stale failed probe (-1) must not permanently hide a valid delay
+      // reported by Mihomo's own history.
+      if (n.history != null &&
+          n.history! > 0 &&
+          (delays[n.name] == null || delays[n.name]! <= 0)) {
         delays[n.name] = n.history!;
       }
     }
@@ -792,9 +796,15 @@ class AppState extends ChangeNotifier {
     if (api == null) return;
     testing.add(name);
     notifyListeners();
-    delays[name] = await api.delay(name);
-    testing.remove(name);
-    notifyListeners();
+    try {
+      delays[name] = await api.delay(name);
+    } catch (e) {
+      delays[name] = -1;
+      logs.add(LogEntry('warning', 'Не удалось проверить задержку $name: $e'));
+    } finally {
+      testing.remove(name);
+      notifyListeners();
+    }
   }
 
   Future<void> testGroup(String group) async {
