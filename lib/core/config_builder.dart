@@ -4,7 +4,7 @@ import 'link_parser.dart';
 
 const kMainGroup = 'PROXY';
 const kAutoGroup = 'AUTO';
-const kTestUrl = 'https://www.gstatic.com/generate_204';
+const kTestUrl = 'https://cp.cloudflare.com/generate_204';
 
 class CoreOptions {
   const CoreOptions({
