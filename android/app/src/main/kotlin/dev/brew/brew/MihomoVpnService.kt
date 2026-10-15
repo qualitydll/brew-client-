@@ -157,19 +157,11 @@ class MihomoVpnService : VpnService() {
             .put("profile", configFile.absolutePath)
             .toString()
 
-        // libmihomo reports an empty callback result on success.
-        val ready = CountDownLatch(1)
-        var setupError: String? = null
-        Clash.quickSetup(initParams, setupParams) { message ->
-            setupError = message?.takeIf { it.isNotBlank() }
-            ready.countDown()
-        }
-        check(ready.await(30, TimeUnit.SECONDS)) {
-            "Mihomo did not finish loading the profile within 30 seconds."
-        }
-        check(setupError == null) {
-            "Mihomo rejected the profile at ${configFile.absolutePath}: $setupError"
-        }
+        // A raw YAML parse is not enough: Mihomo can still reject a proxy during
+        // semantic config parsing. Retry only for the same indexed proxy error
+        // the Dart validator already knows how to handle, removing that node
+        // and its group references before trying again.
+        setupMihomoWithInvalidProxyFallback(configFile, initParams, setupParams);
 
         // Match FlClash's Android TUN setup: the system owns the TUN interface,
         // while Mihomo receives the detached descriptor through its mobile bridge.
@@ -207,6 +199,71 @@ class MihomoVpnService : VpnService() {
                 // startTUN can fail before native code takes ownership of fd.
                 runCatching { ParcelFileDescriptor.adoptFd(fd).close() }
                 throw error
+            }
+        }
+    }
+
+
+    private fun setupMihomoWithInvalidProxyFallback(
+        configFile: File,
+        initParams: String,
+        setupParams: String,
+    ) {
+        var removedCount = 0
+        while (true) {
+            val ready = CountDownLatch(1)
+            var setupError: String? = null
+            Clash.quickSetup(initParams, setupParams) { message ->
+                setupError = message?.takeIf { it.isNotBlank() }
+                ready.countDown()
+            }
+            check(ready.await(30, TimeUnit.SECONDS)) {
+                "Mihomo did not finish loading the profile within 30 seconds."
+            }
+
+            val message = setupError ?: return
+            val match = Regex("^proxy (\\d+):").find(message)
+                ?: error("Mihomo rejected the profile: $message")
+
+            val config = JSONObject(configFile.readText())
+            val proxies = config.optJSONArray("proxies")
+                ?: error("Mihomo rejected a proxy, but config has no proxies array: $message")
+            val index = match.groupValues[1].toInt()
+            check(index in 0 until proxies.length()) {
+                "Mihomo reported invalid proxy index $index, but config contains " +
+                    "${proxies.length()} proxies: $message"
+            }
+            val invalidProxy = proxies.optJSONObject(index)
+                ?: error("Proxy at index $index is not a valid object: $message")
+            val invalidName = invalidProxy.optString("name", "")
+            check(invalidName.isNotBlank()) {
+                "Mihomo rejected proxy at index $index without a readable name: $message"
+            }
+
+            proxies.remove(index)
+            config.put("proxies", proxies)
+            val groups = config.optJSONArray("proxy-groups")
+            if (groups != null) {
+                for (groupIndex in 0 until groups.length()) {
+                    val group = groups.optJSONObject(groupIndex) ?: continue
+                    val members = group.optJSONArray("proxies") ?: continue
+                    val filtered = org.json.JSONArray()
+                    for (memberIndex in 0 until members.length()) {
+                        val member = members.opt(memberIndex)
+                        if (member != invalidName) filtered.put(member)
+                    }
+                    if (filtered.length() == 0 && !group.has("use")) {
+                        filtered.put("DIRECT")
+                    }
+                    group.put("proxies", filtered)
+                }
+                config.put("proxy-groups", groups)
+            }
+
+            configFile.writeText(config.toString(2))
+            removedCount++
+            check(removedCount <= 32) {
+                "Mihomo rejected more than 32 proxies; stopping retries. Last error: $message"
             }
         }
     }
