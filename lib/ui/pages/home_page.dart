@@ -206,18 +206,34 @@ class _HomePageState extends State<HomePage> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const _CardTitle(Icons.alt_route_rounded, 'Режим маршрутизации'),
+          const _CardTitle(Icons.alt_route_rounded, 'Маршрутизация'),
           const SizedBox(height: 14),
-          SegmentedButton<String>(
-            segments: const [
-              ButtonSegment(value: 'rule', label: Text('Умный'), icon: Icon(Icons.alt_route_rounded)),
-              ButtonSegment(value: 'global', label: Text('Весь трафик'), icon: Icon(Icons.language_rounded)),
-              ButtonSegment(value: 'direct', label: Text('Напрямую'), icon: Icon(Icons.trending_flat_rounded)),
-            ],
-            selected: {state.settings.mode},
-            onSelectionChanged: (value) => state.setMode(value.first),
-            showSelectedIcon: false,
-            multiSelectionEnabled: false,
+          LayoutBuilder(
+            builder: (context, constraints) {
+              final compact = constraints.maxWidth < 410;
+              return SegmentedButton<String>(
+                segments: [
+                  ButtonSegment(
+                    value: 'rule',
+                    label: Text(compact ? 'Умный' : 'Умный'),
+                    icon: compact ? null : const Icon(Icons.alt_route_rounded),
+                  ),
+                  ButtonSegment(
+                    value: 'global',
+                    label: Text(compact ? 'Весь' : 'Весь трафик'),
+                    icon: compact ? null : const Icon(Icons.language_rounded),
+                  ),
+                  ButtonSegment(
+                    value: 'direct',
+                    label: Text(compact ? 'Прямо' : 'Напрямую'),
+                    icon: compact ? null : const Icon(Icons.trending_flat_rounded),
+                  ),
+                ],
+                selected: {state.settings.mode},
+                onSelectionChanged: (value) => state.setMode(value.first),
+                showSelectedIcon: false,
+              );
+            },
           ),
         ],
       ),
