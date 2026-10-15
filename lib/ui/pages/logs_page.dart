@@ -49,6 +49,97 @@ class _LogsPageState extends State<LogsPage> {
             ),
           ],
         ),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(32, 0, 32, 16),
+          child: LayoutBuilder(
+            builder: (context, constraints) {
+              final compact = constraints.maxWidth < 620;
+              final profile = state.activeProfile;
+              final profileCard = GlassCard(
+                padding: const EdgeInsets.all(16),
+                child: Row(
+                  children: [
+                    Icon(Icons.layers_rounded, color: scheme.primary),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text('Подписка', style: Theme.of(context).textTheme.labelMedium?.copyWith(color: scheme.onSurfaceVariant)),
+                          Text(
+                            profile?.name ?? 'Не добавлена',
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: Theme.of(context).textTheme.titleMedium,
+                          ),
+                          if (profile != null)
+                            Text(
+                              '${profile.proxyCount} серверов · обновлена ${timeAgo(profile.updatedAt)}',
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: Theme.of(context).textTheme.bodySmall?.copyWith(color: scheme.onSurfaceVariant),
+                            ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              );
+              final speedCard = GlassCard(
+                padding: const EdgeInsets.all(16),
+                child: ListenableBuilder(
+                  listenable: state.traffic,
+                  builder: (context, _) {
+                    final tr = state.traffic;
+                    return Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text('Скорость', style: Theme.of(context).textTheme.labelMedium?.copyWith(color: scheme.onSurfaceVariant)),
+                        const SizedBox(height: 8),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: _TrafficValue(
+                                icon: Icons.south_rounded,
+                                label: 'Входящая',
+                                speed: formatSpeed(tr.currentDown),
+                                total: formatBytes(tr.totalDown),
+                              ),
+                            ),
+                            Expanded(
+                              child: _TrafficValue(
+                                icon: Icons.north_rounded,
+                                label: 'Исходящая',
+                                speed: formatSpeed(tr.currentUp),
+                                total: formatBytes(tr.totalUp),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    );
+                  },
+                ),
+              );
+              return compact
+                  ? Column(
+                      children: [
+                        profileCard,
+                        const SizedBox(height: 12),
+                        speedCard,
+                      ],
+                    )
+                  : Row(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        Expanded(child: profileCard),
+                        const SizedBox(width: 12),
+                        Expanded(child: speedCard),
+                      ],
+                    );
+            },
+          ),
+        ),
         Expanded(
           child: Container(
             margin: const EdgeInsets.fromLTRB(32, 0, 32, 32),
@@ -86,6 +177,49 @@ class _LogsPageState extends State<LogsPage> {
             ),
           ),
         ),
+      ],
+    );
+  }
+}
+
+
+class _TrafficValue extends StatelessWidget {
+  const _TrafficValue({
+    required this.icon,
+    required this.label,
+    required this.speed,
+    required this.total,
+  });
+
+  final IconData icon;
+  final String label;
+  final String speed;
+  final String total;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final text = Theme.of(context).textTheme;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Icon(icon, size: 16, color: scheme.primary),
+            const SizedBox(width: 6),
+            Flexible(
+              child: Text(
+                label,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: text.bodySmall?.copyWith(color: scheme.onSurfaceVariant),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 4),
+        Text(speed, style: text.titleMedium?.copyWith(fontWeight: FontWeight.w600)),
+        Text('Всего $total', style: text.bodySmall?.copyWith(color: scheme.onSurfaceVariant)),
       ],
     );
   }
