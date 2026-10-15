@@ -1,3 +1,4 @@
+# UI experiment validation: build the app on the dedicated dashboard branch.
 name: Build Windows EXE and Android APK
 
 on:
