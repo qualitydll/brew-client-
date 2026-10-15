@@ -22,6 +22,30 @@ class _HomePageState extends State<HomePage> {
   final List<String> _widgetOrder = ['server', 'speed', 'ip', 'profile'];
   final Map<String, String> _widgetSizes = {};
   String? _note;
+  bool _layoutLoaded = false;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (_layoutLoaded) return;
+    final settings = AppScope.of(context).settings;
+    _widgetOrder
+      ..clear()
+      ..addAll(settings.homeWidgetOrder);
+    _widgetSizes.addAll(settings.homeWidgetSizes);
+    _note = settings.homeWidgetNote;
+    if (_note != null && !_widgetOrder.contains('note')) {
+      _widgetOrder.add('note');
+    }
+    _layoutLoaded = true;
+  }
+
+  void _persistLayout() {
+    final settings = AppScope.of(context).settings;
+    settings.homeWidgetOrder = List<String>.from(_widgetOrder);
+    settings.homeWidgetSizes = Map<String, String>.from(_widgetSizes);
+    settings.homeWidgetNote = _note;
+  }
 
   void _manageWidget(String id, String action) {
     setState(() {
@@ -31,6 +55,7 @@ class _HomePageState extends State<HomePage> {
       } else {
         _widgetSizes[id] = action;
       }
+      _persistLayout();
     });
   }
 
@@ -70,6 +95,7 @@ class _HomePageState extends State<HomePage> {
       } else if (_note == null) {
         _widgetOrder.remove('note');
       }
+      _persistLayout();
     });
   }
 
@@ -82,7 +108,10 @@ class _HomePageState extends State<HomePage> {
       showSnack(context, 'Этот виджет уже добавлен');
       return;
     }
-    setState(() => _widgetOrder.add(id));
+    setState(() {
+      _widgetOrder.add(id);
+      _persistLayout();
+    });
   }
 
   Widget? _widgetFor(String id, AppState state) => switch (id) {
@@ -202,6 +231,7 @@ class _HomePageState extends State<HomePage> {
               _widgetOrder
                 ..clear()
                 ..addAll(ids);
+              _persistLayout();
             });
           },
           children: [
