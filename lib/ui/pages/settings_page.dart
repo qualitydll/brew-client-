@@ -2,7 +2,6 @@ import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../core/system_proxy.dart';
@@ -262,7 +261,7 @@ class SettingsPage extends StatelessWidget {
           const SizedBox(height: 8),
           ListTile(
             contentPadding: EdgeInsets.zero,
-            leading: const FaIcon(FontAwesomeIcons.github),
+            leading: const Icon(Icons.code_rounded),
             title: const Text('GitHub'),
             subtitle: const Text('github.com/qualitydll/brew-client-'),
             trailing: const Icon(Icons.open_in_new_rounded),
