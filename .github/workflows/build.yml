@@ -1,6 +1,10 @@
 # UI experiment validation: build the app on the dedicated dashboard branch.
 name: Build Windows EXE and Android APK
 
+concurrency:
+  group: brew-build-${{ github.ref }}
+  cancel-in-progress: true
+
 on:
   push:
     branches:
