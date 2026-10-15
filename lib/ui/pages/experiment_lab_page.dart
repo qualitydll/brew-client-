@@ -4,7 +4,9 @@ import '../../state/app_state.dart';
 import '../widgets/common.dart';
 
 class ExperimentLabPage extends StatefulWidget {
-  const ExperimentLabPage({super.key});
+  const ExperimentLabPage({super.key, this.showHeader = true});
+
+  final bool showHeader;
 
   @override
   State<ExperimentLabPage> createState() => _ExperimentLabPageState();
@@ -160,10 +162,11 @@ class _ExperimentLabPageState extends State<ExperimentLabPage> {
     return ListView(
       padding: const EdgeInsets.fromLTRB(28, 20, 28, 32),
       children: [
-        PageHeader(
-          title: 'Experiment Lab',
-          subtitle: 'Экспериментальная диагностика соединения и маршрутов Mihomo',
-        ),
+        if (widget.showHeader)
+          PageHeader(
+            title: 'Experiment Lab',
+            subtitle: 'Экспериментальная диагностика соединения и маршрутов Mihomo',
+          ),
         const SizedBox(height: 8),
         Card(
           child: Padding(
