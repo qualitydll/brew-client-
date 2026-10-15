@@ -130,11 +130,165 @@ class _HomePageState extends State<HomePage> {
     });
   }
 
+  Widget _startWidget(AppState state) {
+    final settings = state.settings;
+    final scale = settings.homeButtonScale;
+    final width = switch (scale) {
+      'small' => 148.0,
+      'large' => 264.0,
+      _ => 196.0,
+    };
+    final height = switch (scale) {
+      'small' => 44.0,
+      'large' => 62.0,
+      _ => 52.0,
+    };
+    final alignment = switch (settings.homeButtonAlignment) {
+      'left' => Alignment.centerLeft,
+      'right' => Alignment.centerRight,
+      _ => Alignment.center,
+    };
+    return GlassCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const _CardTitle(Icons.power_settings_new_rounded, 'Кнопка подключения'),
+          const SizedBox(height: 16),
+          Align(
+            alignment: alignment,
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 240),
+              curve: Curves.easeOutCubic,
+              child: SizedBox(
+                width: width,
+                height: height,
+                child: FilledButton.icon(
+                  onPressed: state.profiles.isNotEmpty && !state.isBusy ? state.toggle : null,
+                  style: FilledButton.styleFrom(
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                  ),
+                  icon: state.isBusy
+                      ? const SizedBox(width: 18, height: 18,
+                          child: CircularProgressIndicator(strokeWidth: 2))
+                      : Icon(state.isConnected ? Icons.stop_rounded : Icons.play_arrow_rounded),
+                  label: FittedBox(
+                    fit: BoxFit.scaleDown,
+                    child: Text(
+                      switch (state.status) {
+                        ConnStatus.connecting => 'Подключение…',
+                        ConnStatus.disconnecting => 'Отключение…',
+                        ConnStatus.connected => 'Остановить',
+                        ConnStatus.disconnected => 'Пуск',
+                      },
+                      style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+          if (state.isConnected && state.connectedAt != null) ...[
+            const SizedBox(height: 12),
+            Row(children: [
+              Icon(Icons.timer_outlined, size: 17, color: Theme.of(context).colorScheme.primary),
+              const SizedBox(width: 7),
+              _Uptime(since: state.connectedAt!),
+            ]),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _routingWidget(AppState state) {
+    return GlassCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const _CardTitle(Icons.alt_route_rounded, 'Режим маршрутизации'),
+          const SizedBox(height: 14),
+          SegmentedButton<String>(
+            segments: const [
+              ButtonSegment(value: 'rule', label: Text('Умный'), icon: Icon(Icons.alt_route_rounded)),
+              ButtonSegment(value: 'global', label: Text('Весь трафик'), icon: Icon(Icons.language_rounded)),
+              ButtonSegment(value: 'direct', label: Text('Напрямую'), icon: Icon(Icons.trending_flat_rounded)),
+            ],
+            selected: {state.settings.mode},
+            onSelectionChanged: (value) => state.setMode(value.first),
+            showSelectedIcon: false,
+            multiSelectionEnabled: false,
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _trafficWidget(AppState state) {
+    String formatBytes(int bytes) {
+      if (bytes < 1024) return '$bytes Б';
+      if (bytes < 1024 * 1024) return '${(bytes / 1024).toStringAsFixed(1)} КБ';
+      if (bytes < 1024 * 1024 * 1024) return '${(bytes / (1024 * 1024)).toStringAsFixed(1)} МБ';
+      return '${(bytes / (1024 * 1024 * 1024)).toStringAsFixed(2)} ГБ';
+    }
+    return GlassCard(
+      child: ListenableBuilder(
+        listenable: state.traffic,
+        builder: (context, _) => Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const _CardTitle(Icons.swap_vert_rounded, 'Трафик за сессию'),
+            const SizedBox(height: 14),
+            Row(children: [
+              Expanded(child: _TrafficValue(
+                icon: Icons.arrow_downward_rounded,
+                label: 'Получено',
+                value: formatBytes(state.traffic.totalDown),
+              )),
+              const SizedBox(width: 12),
+              Expanded(child: _TrafficValue(
+                icon: Icons.arrow_upward_rounded,
+                label: 'Отправлено',
+                value: formatBytes(state.traffic.totalUp),
+              )),
+            ]),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _sessionWidget(AppState state) {
+    return GlassCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const _CardTitle(Icons.timer_outlined, 'Сессия'),
+          const SizedBox(height: 10),
+          Text(
+            state.isConnected && state.connectedAt != null
+                ? 'Подключено'
+                : 'Нет активной сессии',
+            style: Theme.of(context).textTheme.titleMedium,
+          ),
+          if (state.isConnected && state.connectedAt != null) ...[
+            const SizedBox(height: 6),
+            _Uptime(since: state.connectedAt!),
+          ],
+        ],
+      ),
+    );
+  }
+
   Widget? _widgetFor(String id, AppState state) => switch (id) {
+    'start' => _startWidget(state),
+    'routing' => _routingWidget(state),
     'server' => _ServerCard(key: const ValueKey('server'), state: state),
     'speed' => _SpeedCard(key: const ValueKey('speed'), state: state),
     'ip' => const PublicIpCard(key: ValueKey('ip')),
     'profile' => _ProfileCard(key: const ValueKey('profile'), state: state),
+    'traffic' => _trafficWidget(state),
+    'session' => _sessionWidget(state),
     'connections' => state.isConnected
         ? _ConnectionsCard(key: const ValueKey('connections'), state: state)
         : null,
