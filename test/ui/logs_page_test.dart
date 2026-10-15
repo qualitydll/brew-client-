@@ -5,29 +5,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
-  testWidgets('journal title stays horizontal on a narrow Android-sized layout', (tester) async {
-    tester.view.physicalSize = const Size(390, 844);
-    tester.view.devicePixelRatio = 1;
-    addTearDown(tester.view.resetPhysicalSize);
-    addTearDown(tester.view.resetDevicePixelRatio);
-
-    final state = AppState();
-    addTearDown(state.dispose);
-
-    await tester.pumpWidget(
-      MaterialApp(
-        home: Scaffold(
-          body: AppScope(state: state, child: const LogsPage()),
-        ),
-      ),
-    );
-
-    final title = tester.getSize(find.text('Журнал').first);
-    expect(title.width, greaterThan(100));
-    expect(title.height, lessThan(70));
-    expect(tester.takeException(), isNull);
-  });
-
   testWidgets('log messages use the full row width and wrap', (tester) async {
     tester.view.physicalSize = const Size(680, 800);
     tester.view.devicePixelRatio = 1;

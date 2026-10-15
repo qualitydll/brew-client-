@@ -42,7 +42,6 @@ dependencies:
   window_manager: ^0.5.2
   path: ^1.9.1
   animations: ^3.0.0
-  url_launcher: ^6.3.2
 
 dev_dependencies:
   flutter_test:
@@ -62,6 +61,7 @@ dev_dependencies:
 flutter:
 
   assets:
+    - assets/images/brew_logo.png
     - brewicon.png
 
   # The following line ensures that the Material Icons font is

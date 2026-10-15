@@ -2,7 +2,6 @@ import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:url_launcher/url_launcher.dart';
 
 import '../../core/system_proxy.dart';
 import '../../core/routing_rules.dart';
@@ -251,30 +250,12 @@ class SettingsPage extends StatelessWidget {
           ),
         ],
       ),
-      _Section(
+      const _Section(
         icon: Icons.info_rounded,
         title: 'О программе',
         children: [
-          const Text(
+          Text(
             'brew 0.1.0 — VPN-клиент на базе mihomo с дизайном Material You.',
-          ),
-          const SizedBox(height: 8),
-          ListTile(
-            contentPadding: EdgeInsets.zero,
-            leading: const Icon(Icons.code_rounded),
-            title: const Text('GitHub'),
-            subtitle: const Text('github.com/qualitydll/brew-client-'),
-            trailing: const Icon(Icons.open_in_new_rounded),
-            onTap: () async {
-              final uri = Uri.parse('https://github.com/qualitydll/brew-client-');
-              final opened = await launchUrl(
-                uri,
-                mode: LaunchMode.externalApplication,
-              );
-              if (!opened && context.mounted) {
-                showSnack(context, 'Не удалось открыть GitHub');
-              }
-            },
           ),
         ],
       ),

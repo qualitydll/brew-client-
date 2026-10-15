@@ -6,7 +6,7 @@
     <application
         android:label="brew"
         android:name="${applicationName}"
-        android:icon="@mipmap/ic_launcher"
+        android:icon="@drawable/brewicon"
         android:usesCleartextTraffic="true">
         <activity
             android:name=".MainActivity"

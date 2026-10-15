@@ -110,15 +110,10 @@ class _ShellState extends State<Shell> {
                         selectedIndex: _index,
                         onDestinationSelected: _select,
                         groupAlignment: -0.85,
-                        leading: Platform.isWindows
-                            ? null
-                            : Padding(
-                                padding: const EdgeInsets.only(
-                                  bottom: 24,
-                                  top: 4,
-                                ),
-                                child: _Logo(status: state.status),
-                              ),
+                        leading: Padding(
+                          padding: const EdgeInsets.only(bottom: 24, top: 4),
+                          child: _Logo(status: state.status),
+                        ),
                         destinations: [
                           for (final d in _dests)
                             NavigationRailDestination(
@@ -176,8 +171,8 @@ class _Logo extends StatelessWidget {
         child: ClipRRect(
           borderRadius: BorderRadius.circular(12),
           child: Image.asset(
-            'brewicon.png',
-            fit: BoxFit.cover,
+            Platform.isAndroid ? 'brewicon.png' : 'assets/images/brew_logo.png',
+            fit: Platform.isAndroid ? BoxFit.contain : BoxFit.cover,
           ),
         ),
       ),
@@ -199,12 +194,10 @@ class _TitleBar extends StatelessWidget {
               child: Container(
                 alignment: Alignment.centerLeft,
                 padding: const EdgeInsets.only(left: 20),
-                child: Platform.isWindows
-                    ? const SizedBox.shrink()
-                    : BrewMark(
-                        size: 19,
-                        lit: AppScope.of(context).isConnected,
-                      ),
+                child: BrewMark(
+                  size: 19,
+                  lit: AppScope.of(context).isConnected,
+                ),
               ),
             ),
           ),
