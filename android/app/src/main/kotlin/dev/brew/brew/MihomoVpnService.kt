@@ -19,10 +19,23 @@ import java.util.concurrent.CountDownLatch
 import java.util.concurrent.Executors
 import java.util.concurrent.TimeUnit
 
+/**
+ * Android TUN lifecycle adapted for Brew's libmihomo-android bridge.
+ *
+ * FlClash's service is built against its own Go Mobile bridge, so its Core and
+ * ServiceController classes cannot be dropped into this app unchanged. This
+ * service keeps Brew's existing bridge and channel contract while adopting
+ * the upstream lifecycle safeguards: non-blocking TUN, explicit cleanup,
+ * serialized TUN start/stop, and memory-pressure handling.
+ */
 class MihomoVpnService : VpnService() {
     private val worker = Executors.newSingleThreadExecutor()
+    private val tunLock = Any()
+
     @Volatile private var latestStartId = 0
     @Volatile private var activeSessionId: String? = null
+    private var tunRunning = false
+
     private val tunInterface = object : TunInterface {
         override fun protect(fd: Int) {
             check(this@MihomoVpnService.protect(fd)) {
@@ -82,6 +95,7 @@ class MihomoVpnService : VpnService() {
                     }
                 }
             }
+
             ACTION_STOP -> {
                 val sessionId = intent.getStringExtra(EXTRA_SESSION_ID)
                 if (sessionId.isNullOrBlank()) {
@@ -110,6 +124,7 @@ class MihomoVpnService : VpnService() {
                     }
                 }
             }
+
             else -> stopSelf(startId)
         }
         return START_NOT_STICKY
@@ -141,6 +156,8 @@ class MihomoVpnService : VpnService() {
         val setupParams = JSONObject()
             .put("profile", configFile.absolutePath)
             .toString()
+
+        // libmihomo reports an empty callback result on success.
         val ready = CountDownLatch(1)
         var setupError: String? = null
         Clash.quickSetup(initParams, setupParams) { message ->
@@ -154,9 +171,17 @@ class MihomoVpnService : VpnService() {
             "Mihomo rejected the profile at ${configFile.absolutePath}: $setupError"
         }
 
+        // Match FlClash's Android TUN setup: the system owns the TUN interface,
+        // while Mihomo receives the detached descriptor through its mobile bridge.
         val tun = Builder()
             .setSession(packageManager.getApplicationLabel(applicationInfo).toString())
             .setMtu(TUN_MTU)
+            .setBlocking(false)
+            .apply {
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                    setMetered(false)
+                }
+            }
             .addAddress(IPV4_ADDRESS, 30)
             .addRoute("0.0.0.0", 0)
             .addDnsServer(IPV4_DNS)
@@ -166,19 +191,23 @@ class MihomoVpnService : VpnService() {
             .establish() ?: error("Android refused to establish the VPN interface.")
 
         val fd = tun.detachFd()
-        try {
-            Clash.startTUN(
-                fd = fd,
-                cb = tunInterface,
-                device = "brew",
-                stack = "mixed",
-                address = "$IPV4_ADDRESS/30,$IPV6_ADDRESS/126",
-                dns = "$IPV4_DNS,$IPV6_DNS",
-                mtu = TUN_MTU,
-            )
-        } catch (error: Exception) {
-            ParcelFileDescriptor.adoptFd(fd).close()
-            throw error
+        synchronized(tunLock) {
+            try {
+                Clash.startTUN(
+                    fd = fd,
+                    cb = tunInterface,
+                    device = "brew",
+                    stack = "mixed",
+                    address = "$IPV4_ADDRESS/30,$IPV6_ADDRESS/126",
+                    dns = "$IPV4_DNS,$IPV6_DNS",
+                    mtu = TUN_MTU,
+                )
+                tunRunning = true
+            } catch (error: Throwable) {
+                // startTUN can fail before native code takes ownership of fd.
+                runCatching { ParcelFileDescriptor.adoptFd(fd).close() }
+                throw error
+            }
         }
     }
 
@@ -218,19 +247,40 @@ class MihomoVpnService : VpnService() {
     }
 
     private fun stopMihomo() {
-        if (Clash.isLoaded()) {
-            Clash.stopTun()
+        synchronized(tunLock) {
+            if (Clash.isLoaded()) {
+                Clash.stopTun()
+            }
+            tunRunning = false
         }
     }
 
+    override fun onLowMemory() {
+        if (Clash.isLoaded()) runCatching { Clash.forceGC() }
+        super.onLowMemory()
+    }
+
+    override fun onTrimMemory(level: Int) {
+        if (level >= TRIM_MEMORY_BACKGROUND && Clash.isLoaded()) {
+            runCatching { Clash.forceGC() }
+        }
+        super.onTrimMemory(level)
+    }
+
     override fun onRevoke() {
-        stopMihomo()
-        stopSelf()
+        // Serialize revocation cleanup with an in-progress start/stop operation.
+        runCatching {
+            worker.execute {
+                runCatching { stopMihomo() }
+                activeSessionId = null
+                stopSelf()
+            }
+        }
         super.onRevoke()
     }
 
     override fun onDestroy() {
-        stopMihomo()
+        runCatching { stopMihomo() }
         worker.shutdownNow()
         super.onDestroy()
     }
@@ -254,9 +304,10 @@ class MihomoVpnService : VpnService() {
         private const val NOTIFICATION_CHANNEL = "brew_vpn"
         private const val NOTIFICATION_ID = 1
         private const val CONFIG_FILE_NAME = "config.yaml"
+        // Reserved benchmarking space; the configured fake-IP pool starts after this /30.
         private const val TUN_MTU = 1400
-        private const val IPV4_ADDRESS = "172.19.0.1"
-        private const val IPV4_DNS = "172.19.0.2"
+        private const val IPV4_ADDRESS = "198.18.0.1"
+        private const val IPV4_DNS = "198.18.0.2"
         private const val IPV6_ADDRESS = "fdfe:dcba:9876::1"
         private const val IPV6_DNS = "fdfe:dcba:9876::2"
     }
