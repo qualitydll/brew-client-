@@ -1,5 +1,7 @@
 <div align="center">
 
+<img src="https://raw.githubusercontent.com/qualitydll/brew-client-/main/brewbanner.png" alt="brew. — баннер проекта" width="100%" />
+
 <img src="assets/images/brewicon.jpg" alt="Логотип brew." width="112" />
 
 # brew.
