@@ -79,7 +79,7 @@ class Settings {
 
   List<String> get homeWidgetOrder =>
       _prefs.getStringList('homeWidgetOrder') ??
-      ['server', 'speed', 'ip', 'profile'];
+      ['start', 'routing', 'server', 'speed', 'ip', 'profile'];
   set homeWidgetOrder(List<String> value) =>
       _prefs.setStringList('homeWidgetOrder', value);
 
@@ -100,6 +100,28 @@ class Settings {
   set homeWidgetNote(String? value) => value == null
       ? _prefs.remove('homeWidgetNote')
       : _prefs.setString('homeWidgetNote', value);
+
+  Map<String, String> get homeWidgetPairs {
+    try {
+      final raw = _prefs.getString('homeWidgetPairs');
+      if (raw == null) return {};
+      return (jsonDecode(raw) as Map<String, dynamic>)
+          .map((key, value) => MapEntry(key, value.toString()));
+    } catch (_) {
+      return {};
+    }
+  }
+  set homeWidgetPairs(Map<String, String> value) =>
+      _prefs.setString('homeWidgetPairs', jsonEncode(value));
+
+  String get homeButtonAlignment => _prefs.getString('homeButtonAlignment') ?? 'center';
+  set homeButtonAlignment(String value) => _prefs.setString('homeButtonAlignment', value);
+
+  String get homeButtonScale => _prefs.getString('homeButtonScale') ?? 'medium';
+  set homeButtonScale(String value) => _prefs.setString('homeButtonScale', value);
+
+  String get accentRole => _prefs.getString('accentRole') ?? 'primary';
+  set accentRole(String value) => _prefs.setString('accentRole', value);
 
   String? get activeProfileId => _prefs.getString('activeProfile');
   set activeProfileId(String? v) => v == null
