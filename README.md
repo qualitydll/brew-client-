@@ -1,6 +1,6 @@
 <div align="center">
 
-<img src="brewicon.jpg" alt="Логотип brew." width="112" />
+<img src="assets/images/brewicon.jpg" alt="Логотип brew." width="112" />
 
 # brew.
 
