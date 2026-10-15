@@ -24,6 +24,7 @@ class _HomePageState extends State<HomePage> {
   final Map<String, String> _widgetPairs = {};
   String? _note;
   bool _layoutLoaded = false;
+  bool _editMode = false;
 
   @override
   void didChangeDependencies() {
@@ -33,6 +34,10 @@ class _HomePageState extends State<HomePage> {
     _widgetOrder
       ..clear()
       ..addAll(settings.homeWidgetOrder);
+    // Migrate existing installs: make the VPN status a movable dashboard block.
+    if (!_widgetOrder.contains('status')) {
+      _widgetOrder.insert(_widgetOrder.contains('start') ? 1 : 0, 'status');
+    }
     _widgetSizes.addAll(settings.homeWidgetSizes);
     _widgetPairs.addAll(settings.homeWidgetPairs);
     _note = settings.homeWidgetNote;
@@ -298,6 +303,7 @@ class _HomePageState extends State<HomePage> {
 
   Widget? _widgetFor(String id, AppState state) => switch (id) {
     'start' => _startWidget(state),
+    'status' => _Hero(state: state),
     'routing' => _routingWidget(state),
     'server' => _ServerCard(key: const ValueKey('server'), state: state),
     'speed' => _SpeedCard(key: const ValueKey('speed'), state: state),
@@ -391,8 +397,9 @@ class _HomePageState extends State<HomePage> {
                     ),
                   ),
           ),
-          PopupMenuButton<String>(
-            tooltip: 'Настроить виджет',
+          if (_editMode)
+            PopupMenuButton<String>(
+            tooltip: 'Настроить блок: размер, соединение и удаление',
             onSelected: (action) => _manageWidget(id, action),
             icon: const Icon(Icons.tune_rounded, size: 19),
             itemBuilder: (context) => [
@@ -421,14 +428,15 @@ class _HomePageState extends State<HomePage> {
               const PopupMenuItem(value: 'remove', child: Text('Удалить виджет')),
             ],
           ),
-          ReorderableDragStartListener(
-            index: index,
-            child: Padding(
-              padding: const EdgeInsets.only(top: 16, left: 2),
-              child: Icon(Icons.drag_indicator_rounded,
-                color: Theme.of(context).colorScheme.onSurfaceVariant),
+          if (_editMode)
+            ReorderableDragStartListener(
+              index: index,
+              child: Padding(
+                padding: const EdgeInsets.only(top: 16, left: 2),
+                child: Icon(Icons.drag_indicator_rounded,
+                  color: Theme.of(context).colorScheme.primary),
+              ),
             ),
-          ),
         ],
       ),
     );
@@ -436,6 +444,7 @@ class _HomePageState extends State<HomePage> {
 
   String _widgetLabel(String id) => switch (id) {
     'start' => 'Кнопка подключения',
+    'status' => 'Статус VPN',
     'routing' => 'Маршрутизация',
     'server' => 'Сервер',
     'speed' => 'Скорость',
@@ -476,10 +485,16 @@ class _HomePageState extends State<HomePage> {
               ),
             ),
             PopupMenuButton<String>(
-              tooltip: 'Добавить виджет',
+              tooltip: 'Добавить блок на экран',
               onSelected: _addWidget,
               icon: const Icon(Icons.add_rounded),
               itemBuilder: (context) => [
+                if (!_widgetOrder.contains('status'))
+                  const PopupMenuItem(value: 'status', child: ListTile(
+                    contentPadding: EdgeInsets.zero,
+                    leading: Icon(Icons.monitor_heart_outlined),
+                    title: Text('Статус VPN'),
+                  )),
                 if (!_widgetOrder.contains('start'))
                   const PopupMenuItem(value: 'start', child: ListTile(
                     contentPadding: EdgeInsets.zero,
@@ -543,17 +558,22 @@ class _HomePageState extends State<HomePage> {
             ),
           ],
         ),
-        const SizedBox(height: 20),
-        _Hero(state: state),
-        const SizedBox(height: 20),
+        const SizedBox(height: 12),
         Row(
           children: [
-            Expanded(child: Text('Мои виджеты', style: Theme.of(context).textTheme.titleLarge?.copyWith(
+            Expanded(child: Text('Мой экран', style: Theme.of(context).textTheme.titleLarge?.copyWith(
               fontWeight: FontWeight.w700,
             ))),
-            Text('Зажми и перетащи', style: Theme.of(context).textTheme.labelSmall?.copyWith(
-              color: Theme.of(context).colorScheme.onSurfaceVariant,
-            )),
+            if (_editMode)
+              Text('Перетаскивай за значок ⋮⋮', style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+              )),
+            const SizedBox(width: 8),
+            OutlinedButton.icon(
+              onPressed: () => setState(() => _editMode = !_editMode),
+              icon: Icon(_editMode ? Icons.check_rounded : Icons.edit_rounded, size: 17),
+              label: Text(_editMode ? 'Готово' : 'Настроить экран'),
+            ),
           ],
         ),
         const SizedBox(height: 10),
