@@ -110,10 +110,15 @@ class _ShellState extends State<Shell> {
                         selectedIndex: _index,
                         onDestinationSelected: _select,
                         groupAlignment: -0.85,
-                        leading: Padding(
-                          padding: const EdgeInsets.only(bottom: 24, top: 4),
-                          child: _Logo(status: state.status),
-                        ),
+                        leading: Platform.isWindows
+                            ? null
+                            : Padding(
+                                padding: const EdgeInsets.only(
+                                  bottom: 24,
+                                  top: 4,
+                                ),
+                                child: _Logo(status: state.status),
+                              ),
                         destinations: [
                           for (final d in _dests)
                             NavigationRailDestination(
@@ -171,7 +176,7 @@ class _Logo extends StatelessWidget {
         child: ClipRRect(
           borderRadius: BorderRadius.circular(12),
           child: Image.asset(
-            'assets/images/brew_logo.png',
+            'brewicon.png',
             fit: BoxFit.cover,
           ),
         ),
@@ -194,10 +199,12 @@ class _TitleBar extends StatelessWidget {
               child: Container(
                 alignment: Alignment.centerLeft,
                 padding: const EdgeInsets.only(left: 20),
-                child: BrewMark(
-                  size: 19,
-                  lit: AppScope.of(context).isConnected,
-                ),
+                child: Platform.isWindows
+                    ? const SizedBox.shrink()
+                    : BrewMark(
+                        size: 19,
+                        lit: AppScope.of(context).isConnected,
+                      ),
               ),
             ),
           ),

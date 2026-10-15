@@ -161,34 +161,47 @@ class PageHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final t = Theme.of(context).textTheme;
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(32, 8, 32, 16),
-      child: Row(
-        children: [
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  title,
-                  style: t.displaySmall?.copyWith(fontWeight: FontWeight.w600),
-                ),
-                if (subtitle != null)
-                  Padding(
-                    padding: const EdgeInsets.only(top: 4),
-                    child: Text(
-                      subtitle!,
-                      style: t.bodyLarge?.copyWith(
-                        color: Theme.of(context).colorScheme.onSurfaceVariant,
-                      ),
-                    ),
-                  ),
-              ],
+    final compact = MediaQuery.sizeOf(context).width < 700;
+    final heading = Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          title,
+          softWrap: true,
+          style: t.displaySmall?.copyWith(fontWeight: FontWeight.w600),
+        ),
+        if (subtitle != null)
+          Padding(
+            padding: const EdgeInsets.only(top: 4),
+            child: Text(
+              subtitle!,
+              style: t.bodyLarge?.copyWith(
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+              ),
             ),
           ),
-          ...actions,
-        ],
-      ),
+      ],
+    );
+
+    return Padding(
+      padding: EdgeInsets.fromLTRB(compact ? 20 : 32, 8, compact ? 20 : 32, 16),
+      child: compact
+          ? Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                SizedBox(width: double.infinity, child: heading),
+                if (actions.isNotEmpty) ...[
+                  const SizedBox(height: 12),
+                  Wrap(spacing: 8, runSpacing: 8, children: actions),
+                ],
+              ],
+            )
+          : Row(
+              children: [
+                Expanded(child: heading),
+                ...actions,
+              ],
+            ),
     );
   }
 }
