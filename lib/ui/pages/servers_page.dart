@@ -19,7 +19,7 @@ class ServersPage extends StatelessWidget {
           title: 'Серверы',
           subtitle: group == null
               ? null
-              : '${proxyTypeLabel(group.type)} · ${group.all.length} вариантов',
+              : '${proxyTypeLabel(group.type)} · ${_variantCountLabel(group.all.length)}',
           actions: [
             if (group != null) ...[
               IconButton.filledTonal(
@@ -389,4 +389,18 @@ class _ServerTileState extends State<_ServerTile> {
       ),
     );
   }
+}
+
+
+String _variantCountLabel(int count) {
+  final mod100 = count % 100;
+  final mod10 = count % 10;
+  final suffix = mod100 >= 11 && mod100 <= 14
+      ? 'вариантов'
+      : switch (mod10) {
+          1 => 'вариант',
+          2 || 3 || 4 => 'варианта',
+          _ => 'вариантов',
+        };
+  return '$count $suffix';
 }
