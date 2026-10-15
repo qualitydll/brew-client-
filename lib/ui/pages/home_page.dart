@@ -143,6 +143,7 @@ class _HomePageState extends State<HomePage> {
                     onPressed: () => setState(() {
                       _widgetOrder.remove('note');
                       _note = null;
+                      _persistLayout();
                     }),
                     icon: const Icon(Icons.close_rounded, size: 18),
                   ),
@@ -185,6 +186,24 @@ class _HomePageState extends State<HomePage> {
               onSelected: _addWidget,
               icon: const Icon(Icons.add_rounded),
               itemBuilder: (context) => [
+                if (!_widgetOrder.contains('server'))
+                  const PopupMenuItem(value: 'server', child: ListTile(
+                    contentPadding: EdgeInsets.zero,
+                    leading: Icon(Icons.dns_rounded),
+                    title: Text('Сервер'),
+                  )),
+                if (!_widgetOrder.contains('speed'))
+                  const PopupMenuItem(value: 'speed', child: ListTile(
+                    contentPadding: EdgeInsets.zero,
+                    leading: Icon(Icons.speed_rounded),
+                    title: Text('Скорость'),
+                  )),
+                if (!_widgetOrder.contains('profile'))
+                  const PopupMenuItem(value: 'profile', child: ListTile(
+                    contentPadding: EdgeInsets.zero,
+                    leading: Icon(Icons.layers_rounded),
+                    title: Text('Профиль'),
+                  )),
                 if (!_widgetOrder.contains('ip'))
                   const PopupMenuItem(value: 'ip', child: ListTile(
                     contentPadding: EdgeInsets.zero,
