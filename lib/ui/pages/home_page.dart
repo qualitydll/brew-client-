@@ -345,6 +345,7 @@ class _HomePageState extends State<HomePage> {
     final pairedId = _widgetPairs[id];
     final primary = _widgetFor(id, state) ?? const SizedBox.shrink();
     final paired = pairedId == null ? null : _widgetFor(pairedId, state);
+    final pairSideBySide = MediaQuery.sizeOf(context).width >= 620;
     final canPair = _widgetOrder.where((other) =>
       other != id &&
       !_widgetPairs.values.contains(other) &&
@@ -359,14 +360,23 @@ class _HomePageState extends State<HomePage> {
         children: [
           Expanded(
             child: paired != null
-                ? Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Expanded(child: primary),
-                      const SizedBox(width: 10),
-                      Expanded(child: paired),
-                    ],
-                  )
+                ? pairSideBySide
+                    ? Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Expanded(child: primary),
+                          const SizedBox(width: 10),
+                          Expanded(child: paired),
+                        ],
+                      )
+                    : Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          primary,
+                          const SizedBox(height: 10),
+                          paired,
+                        ],
+                      )
                 : Align(
                     alignment: Alignment.centerLeft,
                     child: ConstrainedBox(
