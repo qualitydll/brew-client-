@@ -10,8 +10,6 @@
 
 Powered by [Flutter](https://flutter.dev) and [Mihomo](https://github.com/MetaCubeX/mihomo).
 
-<img src="assets/images/brewicon.jpg" alt="brew. logo" width="112" />
-
 </div>
 
 ---
