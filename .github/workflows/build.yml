@@ -19,6 +19,17 @@ jobs:
     steps:
     - uses: actions/checkout@v4
 
+    - name: Setup Python for brand assets
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.x'
+
+    - name: Generate Brew brand assets
+      shell: pwsh
+      run: |
+        python -m pip install Pillow
+        python scripts/generate_brand_assets.py
+
     - name: Setup Flutter
       uses: subosito/flutter-action@v2
       with:
@@ -63,6 +74,17 @@ jobs:
 
     steps:
     - uses: actions/checkout@v4
+
+    - name: Setup Python for brand assets
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.x'
+
+    - name: Generate Brew brand assets
+      shell: bash
+      run: |
+        python -m pip install Pillow
+        python scripts/generate_brand_assets.py
 
     - name: Setup Java
       uses: actions/setup-java@v4
