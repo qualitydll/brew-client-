@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
@@ -5,7 +6,7 @@ import 'package:flutter/material.dart';
 import '../motion.dart';
 
 /// Slowly drifting, color-tinted light blobs behind the whole UI.
-/// Becomes livelier and brighter while connected.
+/// On Windows the background is static to reduce idle CPU/GPU work.
 class AuroraBackground extends StatefulWidget {
   const AuroraBackground({super.key, required this.energized});
 
@@ -25,10 +26,13 @@ class _AuroraBackgroundState extends State<AuroraBackground> {
   final _s = _AuroraState();
   final _clock = Ambient.instance;
 
+  bool get _animationDisabled =>
+      Platform.isWindows || Motion.disabled('aurora');
+
   @override
   void initState() {
     super.initState();
-    if (!Motion.disabled('aurora')) {
+    if (!_animationDisabled) {
       _clock
         ..addListener(_tick)
         ..retain();
@@ -45,8 +49,17 @@ class _AuroraBackgroundState extends State<AuroraBackground> {
   }
 
   @override
+  void didUpdateWidget(covariant AuroraBackground oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (_animationDisabled && oldWidget.energized != widget.energized) {
+      _s.energy = widget.energized ? 1 : 0;
+      _s.tick();
+    }
+  }
+
+  @override
   void dispose() {
-    if (!Motion.disabled('aurora')) {
+    if (!_animationDisabled) {
       _clock
         ..removeListener(_tick)
         ..release();
