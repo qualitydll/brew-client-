@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../../core/system_proxy.dart';
+import '../../core/windows_startup.dart';
 import '../../core/routing_rules.dart';
 import '../../state/app_state.dart';
 import 'experiment_lab_page.dart';
@@ -209,6 +210,67 @@ class SettingsPage extends StatelessWidget {
           ),
         ],
       ),
+      if (Platform.isWindows)
+        _Section(
+          icon: Icons.power_settings_new_rounded,
+          title: 'Запуск Windows',
+          children: [
+            SwitchListTile(
+              contentPadding: EdgeInsets.zero,
+              title: const Text('Автозапуск вместе с Windows'),
+              subtitle: const Text('Запускать Brew при входе в систему'),
+              value: s.autostart,
+              onChanged: (enabled) async {
+                try {
+                  await WindowsStartup.setEnabled(
+                    enabled,
+                    minimized: s.startMinimized,
+                  );
+                  s.autostart = enabled;
+                  state.notifyListeners();
+                  if (context.mounted) {
+                    showSnack(context, enabled ? 'Автозапуск включён' : 'Автозапуск выключен');
+                  }
+                } catch (e) {
+                  if (context.mounted) showSnack(context, 'Не удалось изменить автозапуск: $e');
+                }
+              },
+            ),
+            SwitchListTile(
+              contentPadding: EdgeInsets.zero,
+              title: const Text('Запускать свёрнутым'),
+              subtitle: const Text('При автозапуске окно не будет открываться развёрнутым'),
+              value: s.startMinimized,
+              onChanged: (enabled) async {
+                s.startMinimized = enabled;
+                try {
+                  if (s.autostart) {
+                    await WindowsStartup.setEnabled(true, minimized: enabled);
+                  }
+                  state.notifyListeners();
+                } catch (e) {
+                  if (context.mounted) showSnack(context, 'Не удалось обновить запуск: $e');
+                }
+              },
+            ),
+            SwitchListTile(
+              contentPadding: EdgeInsets.zero,
+              title: const Text('Автоподключение к выбранному серверу'),
+              subtitle: Text(
+                s.preferredServer == null
+                    ? 'Сначала выберите сервер на странице «Узлы»'
+                    : 'При запуске подключаться к «${s.preferredServer}»',
+              ),
+              value: s.autoConnect,
+              onChanged: s.preferredServer == null
+                  ? null
+                  : (enabled) {
+                      s.autoConnect = enabled;
+                      state.notifyListeners();
+                    },
+            ),
+          ],
+        ),
       _Section(
         icon: Icons.memory_rounded,
         title: 'Ядро',
