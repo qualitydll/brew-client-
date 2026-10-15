@@ -536,10 +536,9 @@ class AppState extends ChangeNotifier {
       _subscribeStreams(api);
       await refreshProxies();
       final preferred = settings.preferredServer;
-      final selectable = mainGroup;
-      if (preferred != null &&
-          selectable != null &&
-          selectable.all.contains(preferred)) {
+      final preferredGroup = settings.preferredServerGroup;
+      final selectable = (preferredGroup == null ? null : nodes[preferredGroup]) ?? mainGroup;
+      if (preferred != null && selectable != null && selectable.all.contains(preferred)) {
         await select(selectable.name, preferred);
       }
       // Let the connect animation breathe a little even on fast machines.
@@ -784,7 +783,8 @@ class AppState extends ChangeNotifier {
           if (node.isGroup) node,
       ];
       if (viewGroup == null || !groups.any((g) => g.name == viewGroup)) {
-        viewGroup = mainGroup?.name ?? groups.where((g) => g.isSelectable).firstOrNull?.name;
+        final selectableGroups = groups.where((g) => g.isSelectable).toList();
+        viewGroup = mainGroup?.name ?? (selectableGroups.isNotEmpty ? selectableGroups.first.name : (groups.isNotEmpty ? groups.first.name : null));
       }
     } catch (e) {
       logs.add(LogEntry('warning', 'Не удалось загрузить список серверов: $e'));
@@ -872,6 +872,7 @@ class AppState extends ChangeNotifier {
   Future<void> select(String group, String name) async {
     final api = _api;
     settings.preferredServer = name;
+    settings.preferredServerGroup = group;
     recordRecentServer(name);
     if (api == null) {
       nodes = {
