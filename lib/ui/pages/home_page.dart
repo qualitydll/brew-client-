@@ -21,7 +21,19 @@ class _HomePageState extends State<HomePage> {
   // A single home dashboard: widgets stay together rather than being split
   // into separate feature pages. The order can be changed by dragging.
   final List<String> _widgetOrder = ['server', 'speed', 'ip', 'profile'];
+  final Map<String, String> _widgetSizes = {};
   String? _note;
+
+  void _manageWidget(String id, String action) {
+    setState(() {
+      if (action == 'remove') {
+        _widgetOrder.remove(id);
+        if (id == 'note') _note = null;
+      } else {
+        _widgetSizes[id] = action;
+      }
+    });
+  }
 
   Future<void> _addNote() async {
     final controller = TextEditingController(text: _note ?? '');
@@ -202,12 +214,37 @@ class _HomePageState extends State<HomePage> {
                 child: Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Expanded(child: _widgetFor(ids[i], state) ?? const SizedBox.shrink()),
-                    const SizedBox(width: 4),
+                    Expanded(
+                      child: Align(
+                        alignment: Alignment.centerLeft,
+                        child: ConstrainedBox(
+                          constraints: BoxConstraints(
+                            maxWidth: switch (_widgetSizes[ids[i]] ?? 'large') {
+                              'small' => 360,
+                              'medium' => 620,
+                              _ => double.infinity,
+                            },
+                          ),
+                          child: _widgetFor(ids[i], state) ?? const SizedBox.shrink(),
+                        ),
+                      ),
+                    ),
+                    PopupMenuButton<String>(
+                      tooltip: 'Настроить виджет',
+                      onSelected: (action) => _manageWidget(ids[i], action),
+                      icon: const Icon(Icons.tune_rounded, size: 19),
+                      itemBuilder: (context) => const [
+                        PopupMenuItem(value: 'small', child: Text('Маленький размер')),
+                        PopupMenuItem(value: 'medium', child: Text('Средний размер')),
+                        PopupMenuItem(value: 'large', child: Text('Большой размер')),
+                        PopupMenuDivider(),
+                        PopupMenuItem(value: 'remove', child: Text('Удалить виджет')),
+                      ],
+                    ),
                     ReorderableDragStartListener(
                       index: i,
                       child: Padding(
-                        padding: const EdgeInsets.only(top: 16),
+                        padding: const EdgeInsets.only(top: 16, left: 2),
                         child: Icon(Icons.drag_indicator_rounded,
                           color: Theme.of(context).colorScheme.onSurfaceVariant),
                       ),
