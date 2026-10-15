@@ -2,13 +2,13 @@
 
 # brew.
 
-**A minimalist VPN client for Windows and Android**
+**A minimalist VPN client for Windows and Android, with Brew’s own visual identity**
 
 [🇷🇺 Русский](README.md) · [🇬🇧 English](README.en.md)
 
 Powered by [Flutter](https://flutter.dev) and [Mihomo](https://github.com/MetaCubeX/mihomo).
 
-<img src="assets/images/brew_logo.png" alt="brew. logo" width="112" />
+<img src="brewicon.jpg" alt="brew. logo" width="112" />
 
 </div>
 
@@ -16,7 +16,7 @@ Powered by [Flutter](https://flutter.dev) and [Mihomo](https://github.com/MetaCu
 
 ## About
 
-**brew.** is a compact VPN client focused on a clean interface, profile management, and straightforward connection controls. The project uses Flutter for its UI and Mihomo as its networking core.
+**brew.** is a compact VPN client with its own visual identity, profile management, and straightforward connection controls. The project uses Flutter for its UI and Mihomo as its networking core.
 
 > brew. is under active development. Features and compatibility may change.
 
