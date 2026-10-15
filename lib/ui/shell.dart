@@ -146,36 +146,24 @@ class _Logo extends StatelessWidget {
     final scheme = Theme.of(context).colorScheme;
     final on = status == ConnStatus.connected;
     return AnimatedContainer(
-      duration: const Duration(milliseconds: 600),
-      curve: Curves.easeOutBack,
+      duration: const Duration(milliseconds: 300),
+      curve: Curves.easeOut,
       width: 48,
       height: 48,
-      decoration: ShapeDecoration(
-        shape: on
-            ? const CircleBorder()
-            : const StarBorder(
-                points: 8,
-                innerRadiusRatio: 0.82,
-                pointRounding: 0.6,
-                valleyRounding: 0.4,
-              ),
-        gradient: LinearGradient(
-          colors: on
-              ? [scheme.primary, scheme.tertiary]
-              : [scheme.primaryContainer, scheme.tertiaryContainer],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
+      padding: const EdgeInsets.all(5),
+      decoration: BoxDecoration(
+        color: scheme.surfaceContainerHighest.withValues(alpha: 0.55),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(
+          color: (on ? scheme.primary : scheme.outlineVariant)
+              .withValues(alpha: 0.75),
         ),
       ),
-      child: Padding(
-        padding: const EdgeInsets.all(4),
-        child: ClipRRect(
-          borderRadius: BorderRadius.circular(12),
-          child: Image.asset(
-            'assets/images/brew_logo.png',
-            fit: BoxFit.cover,
-          ),
-        ),
+      child: Image.asset(
+        'assets/images/brew_logo.png',
+        fit: BoxFit.contain,
+        alignment: Alignment.center,
+        filterQuality: FilterQuality.high,
       ),
     );
   }
