@@ -769,10 +769,14 @@ class AppState extends ChangeNotifier {
             final other => other,
           };
           final preferred = settings.preferredServer;
+          final preferredGroup = settings.preferredServerGroup;
           next[name] = ProxyNode(
             name: name,
             type: type,
-            now: preferred != null && all.contains(preferred) ? preferred : null,
+            now: preferred != null && all.contains(preferred) &&
+                    (preferredGroup == null || preferredGroup == name)
+                ? preferred
+                : null,
             all: all,
           );
         }
@@ -861,8 +865,9 @@ class AppState extends ChangeNotifier {
     return chain;
   }
 
-  String? get currentServer =>
-      currentChain.length > 1 ? currentChain.last : null;
+  String? get currentServer => isConnected
+      ? (currentChain.length > 1 ? currentChain.last : null)
+      : settings.preferredServer;
 
   void setViewGroup(String name) {
     viewGroup = name;
@@ -877,7 +882,7 @@ class AppState extends ChangeNotifier {
     if (api == null) {
       nodes = {
         for (final entry in nodes.entries)
-          entry.key: entry.value.isGroup && entry.value.all.contains(name)
+          entry.key: entry.key == group && entry.value.isGroup && entry.value.all.contains(name)
               ? ProxyNode(
                   name: entry.value.name,
                   type: entry.value.type,
