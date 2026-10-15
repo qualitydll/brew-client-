@@ -99,6 +99,7 @@ class AppState extends ChangeNotifier {
   String? viewGroup;
   final Map<String, int> delays = {};
   final Set<String> testing = {};
+  final Set<String> _autoDelayAttempted = {};
   bool busyProfile = false;
   bool probingProfile = false;
   String? reachabilityMessage;
@@ -748,6 +749,18 @@ class AppState extends ChangeNotifier {
       viewGroup = mainGroup?.name;
     }
     notifyListeners();
+
+    // The Android embedded core has no HTTP controller for Mihomo's delay
+    // endpoint, so actively probe the currently selected leaf via the JNI
+    // bridge instead of leaving the home-page latency chip at "— мс".
+    final selected = currentServer;
+    if (Platform.isAndroid &&
+        selected != null &&
+        (delays[selected] == null || delays[selected]! <= 0) &&
+        !testing.contains(selected) &&
+        _autoDelayAttempted.add(selected)) {
+      unawaited(testDelay(selected));
+    }
   }
 
   ProxyNode? get mainGroup {
