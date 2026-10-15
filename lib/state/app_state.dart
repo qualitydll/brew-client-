@@ -915,6 +915,11 @@ class AppState extends ChangeNotifier {
     notifyListeners();
   }
 
+  void setAccentRole(String role) {
+    settings.accentRole = role;
+    notifyListeners();
+  }
+
   void clearError() {
     error = null;
     skipped = const [];
