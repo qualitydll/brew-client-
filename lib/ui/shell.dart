@@ -183,8 +183,27 @@ class _TitleBar extends StatelessWidget {
             child: DragToMoveArea(
               child: Container(
                 alignment: Alignment.centerLeft,
-                padding: const EdgeInsets.only(left: 20),
-                child: const SizedBox.shrink(),
+                padding: const EdgeInsets.only(left: 14),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Image.asset(
+                      'brewicon.png',
+                      width: 22,
+                      height: 22,
+                      fit: BoxFit.contain,
+                      filterQuality: FilterQuality.high,
+                    ),
+                    const SizedBox(width: 9),
+                    Text(
+                      'brew',
+                      style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                        fontWeight: FontWeight.w700,
+                        letterSpacing: 0.2,
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ),
           ),
