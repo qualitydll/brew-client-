@@ -156,4 +156,44 @@ rules:
     expect(proxy['xhttp-opts'], {'path': '/edge', 'mode': 'auto'});
   });
 
+  test('Android TUN enables DNS while preserving provider DNS options', () {
+    final config = applyCoreOptions(
+      const {
+        'dns': {
+          'enable': false,
+          'nameserver': ['https://dns.example/dns-query'],
+          'fallback': ['1.1.1.1'],
+          'respect-rules': true,
+        },
+      },
+      const CoreOptions(
+        mixedPort: 7890,
+        apiPort: 9097,
+        secret: 'test-secret',
+        mode: 'rule',
+        tun: false,
+        allowLan: false,
+        externalTun: true,
+      ),
+    );
+
+    expect(config['dns'], {
+      'enable': true,
+      'ipv6': true,
+      'enhanced-mode': 'fake-ip',
+      'fake-ip-range': '198.18.0.1/16',
+      'fake-ip-filter': [
+        '*.lan',
+        '*.local',
+        'localhost.ptlogin2.qq.com',
+        '+.msftconnecttest.com',
+        '+.msftncsi.com',
+      ],
+      'default-nameserver': ['1.1.1.1', '8.8.8.8'],
+      'nameserver': ['https://dns.example/dns-query'],
+      'fallback': ['1.1.1.1'],
+      'respect-rules': true,
+    });
+  });
+
 }
