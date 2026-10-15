@@ -1,10 +1,10 @@
 <div align="center">
 
-<img src="assets/images/brew_logo.png" alt="Логотип brew." width="112" />
+<img src="brewicon.jpg" alt="Логотип brew." width="112" />
 
 # brew.
 
-**Минималистичный VPN-клиент для Windows и Android**
+**Минималистичный VPN-клиент для Windows и Android — с фирменным логотипом Brew.**
 
 <a href="README.md"><img alt="Русский" src="https://img.shields.io/badge/🇷🇺_Русский-1E1410?style=for-the-badge&labelColor=1E1410" /></a>
 <a href="README.en.md"><img alt="English" src="https://img.shields.io/badge/🇬🇧_English-D97736?style=for-the-badge&labelColor=1E1410" /></a>
@@ -25,7 +25,7 @@
 
 ## ✦ О проекте
 
-**brew.** — компактный клиент для подключения к VPN-профилям и управления серверами. Flutter отвечает за интерфейс, а Mihomo — за сетевую часть.
+**brew.** — компактный VPN-клиент с собственным визуальным стилем, управлением профилями и серверами. Flutter отвечает за интерфейс, а Mihomo — за сетевую часть.
 
 Цель проекта — сделать подключение понятным, настройки доступными, а интерфейс аккуратным и быстрым.
 
