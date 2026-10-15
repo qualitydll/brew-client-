@@ -235,7 +235,7 @@ class SettingsPage extends StatelessWidget {
                     minimized: s.startMinimized,
                   );
                   s.autostart = enabled;
-                  state.notifyListeners();
+                  state.notifySettingsChanged();
                   if (context.mounted) {
                     showSnack(context, enabled ? 'Автозапуск включён' : 'Автозапуск выключен');
                   }
@@ -255,7 +255,7 @@ class SettingsPage extends StatelessWidget {
                   if (s.autostart) {
                     await WindowsStartup.setEnabled(true, minimized: enabled);
                   }
-                  state.notifyListeners();
+                  state.notifySettingsChanged();
                 } catch (e) {
                   if (context.mounted) showSnack(context, 'Не удалось обновить запуск: $e');
                 }
@@ -311,7 +311,7 @@ class SettingsPage extends StatelessWidget {
                   ? null
                   : (enabled) {
                       s.autoConnect = enabled;
-                      state.notifyListeners();
+                      state.notifySettingsChanged();
                     },
             ),
           ],
