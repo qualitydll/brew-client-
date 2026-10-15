@@ -21,7 +21,7 @@ class ServersPage extends StatelessWidget {
               ? null
               : '${proxyTypeLabel(group.type)} · ${_variantCountLabel(group.all.length)}',
           actions: [
-            if (group != null) ...[
+            if (state.isConnected && group != null) ...[
               IconButton.filledTonal(
                 tooltip: 'Проверить пинг',
                 onPressed: () => state.testGroup(group.name),
@@ -44,30 +44,26 @@ class ServersPage extends StatelessWidget {
             ],
           ],
         ),
-        if (!state.isConnected)
-          const Expanded(child: _NotConnected())
-        else ...[
-          if (state.groups.length > 1)
-            Padding(
-              padding: const EdgeInsets.fromLTRB(32, 0, 32, 12),
-              child: Wrap(
-                spacing: 8,
-                runSpacing: 8,
-                children: [
-                  for (final g in state.groups)
-                    ChoiceChip(
-                      label: Text(g.name),
-                      selected: g.name == state.viewGroup,
-                      onSelected: (_) => state.setViewGroup(g.name),
-                    ),
-                ],
-              ),
+        if (state.groups.length > 1)
+          Padding(
+            padding: const EdgeInsets.fromLTRB(32, 0, 32, 12),
+            child: Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                for (final g in state.groups)
+                  ChoiceChip(
+                    label: Text(g.name),
+                    selected: g.name == state.viewGroup,
+                    onSelected: (_) => state.setViewGroup(g.name),
+                  ),
+              ],
             ),
-          if (group != null)
-            Expanded(
-              child: _Grid(state: state, group: group),
-            ),
-        ],
+          ),
+        if (group != null)
+          Expanded(child: _Grid(state: state, group: group))
+        else
+          const Expanded(child: _NotConnected()),
       ],
     );
   }
@@ -106,7 +102,7 @@ class _NotConnected extends StatelessWidget {
             ),
             const SizedBox(height: 20),
             Text(
-              'Подключитесь, чтобы увидеть серверы',
+              state.profiles.isEmpty ? 'Сначала добавьте подписку' : 'Список серверов пока недоступен',
               style: Theme.of(context).textTheme.titleMedium,
             ),
             const SizedBox(height: 16),
