@@ -7,54 +7,220 @@ import '../../state/models.dart';
 import '../shell.dart';
 import '../widgets/common.dart';
 import '../widgets/connect_orb.dart';
+import '../widgets/public_ip_card.dart';
 import '../widgets/traffic_chart.dart';
 
-class HomePage extends StatelessWidget {
+class HomePage extends StatefulWidget {
   const HomePage({super.key});
+
+  @override
+  State<HomePage> createState() => _HomePageState();
+}
+
+class _HomePageState extends State<HomePage> {
+  // A single home dashboard: widgets stay together rather than being split
+  // into separate feature pages. The order can be changed by dragging.
+  final List<String> _widgetOrder = ['server', 'speed', 'ip', 'profile'];
+  String? _note;
+
+  Future<void> _addNote() async {
+    final controller = TextEditingController(text: _note ?? '');
+    final value = await showDialog<String>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Текстовый блок'),
+        content: TextField(
+          controller: controller,
+          autofocus: true,
+          maxLines: 4,
+          decoration: const InputDecoration(
+            hintText: 'Напишите что-нибудь…',
+            border: OutlineInputBorder(),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Отмена'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, controller.text.trim()),
+            child: const Text('Сохранить'),
+          ),
+        ],
+      ),
+    );
+    controller.dispose();
+    if (value == null || !mounted) return;
+    setState(() {
+      _note = value.isEmpty ? null : value;
+      if (_note != null && !_widgetOrder.contains('note')) {
+        _widgetOrder.add('note');
+      } else if (_note == null) {
+        _widgetOrder.remove('note');
+      }
+    });
+  }
+
+  void _addWidget(String id) {
+    if (id == 'note') {
+      _addNote();
+      return;
+    }
+    if (_widgetOrder.contains(id)) {
+      showSnack(context, 'Этот виджет уже добавлен');
+      return;
+    }
+    setState(() => _widgetOrder.add(id));
+  }
+
+  Widget? _widgetFor(String id, AppState state) => switch (id) {
+    'server' => _ServerCard(key: const ValueKey('server'), state: state),
+    'speed' => _SpeedCard(key: const ValueKey('speed'), state: state),
+    'ip' => const PublicIpCard(key: ValueKey('ip')),
+    'profile' => _ProfileCard(key: const ValueKey('profile'), state: state),
+    'connections' => state.isConnected
+        ? _ConnectionsCard(key: const ValueKey('connections'), state: state)
+        : null,
+    'note' => _note == null
+        ? null
+        : GlassCard(
+            key: const ValueKey('note'),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(children: [
+                  Icon(Icons.notes_rounded, color: Theme.of(context).colorScheme.primary),
+                  const SizedBox(width: 8),
+                  const Expanded(child: Text('Заметка')),
+                  IconButton(
+                    tooltip: 'Изменить текст',
+                    onPressed: _addNote,
+                    icon: const Icon(Icons.edit_outlined, size: 18),
+                  ),
+                  IconButton(
+                    tooltip: 'Удалить виджет',
+                    onPressed: () => setState(() {
+                      _widgetOrder.remove('note');
+                      _note = null;
+                    }),
+                    icon: const Icon(Icons.close_rounded, size: 18),
+                  ),
+                ]),
+                Text(_note!),
+              ],
+            ),
+          ),
+    _ => null,
+  };
 
   @override
   Widget build(BuildContext context) {
     final state = AppScope.of(context);
-    final wide = MediaQuery.sizeOf(context).width >= 1050;
-    final hero = _Hero(state: state);
-    final cards = [
-      _ServerCard(state: state),
-      _SpeedCard(state: state),
-      if (state.isConnected) _ConnectionsCard(state: state),
-      _ProfileCard(state: state),
-    ];
-    if (wide) {
-      return Row(
-        children: [
-          Expanded(
-            flex: 5,
-            child: Center(child: SingleChildScrollView(child: hero)),
-          ),
-          Expanded(
-            flex: 4,
-            child: ListView(
-              padding: const EdgeInsets.fromLTRB(0, 16, 32, 32),
-              children: [
-                for (var i = 0; i < cards.length; i++)
-                  Padding(
-                    padding: const EdgeInsets.only(bottom: 16),
-                    child: StaggeredEntrance(index: i + 1, child: cards[i]),
-                  ),
+    final width = MediaQuery.sizeOf(context).width;
+    final horizontal = width < 520 ? 16.0 : 28.0;
+    final ids = _widgetOrder.where((id) => id != 'connections' || state.isConnected).toList();
+    return ListView(
+      padding: EdgeInsets.fromLTRB(horizontal, 12, horizontal, 32),
+      children: [
+        Row(
+          children: [
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('brew', style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: -1.1,
+                  )),
+                  const SizedBox(height: 3),
+                  Text('Твоя сеть. Твои правила.', style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  )),
+                ],
+              ),
+            ),
+            PopupMenuButton<String>(
+              tooltip: 'Добавить виджет',
+              onSelected: _addWidget,
+              icon: const Icon(Icons.add_rounded),
+              itemBuilder: (context) => [
+                if (!_widgetOrder.contains('ip'))
+                  const PopupMenuItem(value: 'ip', child: ListTile(
+                    contentPadding: EdgeInsets.zero,
+                    leading: Icon(Icons.public_rounded),
+                    title: Text('Публичный IP'),
+                  )),
+                if (!_widgetOrder.contains('connections'))
+                  const PopupMenuItem(value: 'connections', child: ListTile(
+                    contentPadding: EdgeInsets.zero,
+                    leading: Icon(Icons.alt_route_rounded),
+                    title: Text('Соединения'),
+                  )),
+                const PopupMenuItem(value: 'note', child: ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  leading: Icon(Icons.notes_rounded),
+                  title: Text('Текстовый блок'),
+                )),
               ],
             ),
-          ),
+          ],
+        ),
+        const SizedBox(height: 20),
+        _Hero(state: state),
+        const SizedBox(height: 20),
+        Row(
+          children: [
+            Expanded(child: Text('Мои виджеты', style: Theme.of(context).textTheme.titleLarge?.copyWith(
+              fontWeight: FontWeight.w700,
+            ))),
+            Text('Зажми и перетащи', style: Theme.of(context).textTheme.labelSmall?.copyWith(
+              color: Theme.of(context).colorScheme.onSurfaceVariant,
+            )),
+          ],
+        ),
+        const SizedBox(height: 10),
+        ReorderableListView(
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          buildDefaultDragHandles: false,
+          onReorder: (oldIndex, newIndex) {
+            setState(() {
+              if (newIndex > oldIndex) newIndex -= 1;
+              final item = ids.removeAt(oldIndex);
+              ids.insert(newIndex, item);
+              _widgetOrder
+                ..clear()
+                ..addAll(ids);
+            });
+          },
+          children: [
+            for (var i = 0; i < ids.length; i++)
+              Padding(
+                key: ValueKey('dashboard-${ids[i]}'),
+                padding: const EdgeInsets.only(bottom: 12),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Expanded(child: _widgetFor(ids[i], state) ?? const SizedBox.shrink()),
+                    const SizedBox(width: 4),
+                    ReorderableDragStartListener(
+                      index: i,
+                      child: Padding(
+                        padding: const EdgeInsets.only(top: 16),
+                        child: Icon(Icons.drag_indicator_rounded,
+                          color: Theme.of(context).colorScheme.onSurfaceVariant),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+          ],
+        ),
+        if (state.error != null || state.skipped.isNotEmpty) ...[
+          const SizedBox(height: 8),
+          _ErrorBanner(state: state),
         ],
-      );
-    }
-    return ListView(
-      padding: const EdgeInsets.fromLTRB(24, 0, 24, 32),
-      children: [
-        hero,
-        for (var i = 0; i < cards.length; i++)
-          Padding(
-            padding: const EdgeInsets.only(top: 16),
-            child: StaggeredEntrance(index: i + 1, child: cards[i]),
-          ),
       ],
     );
   }
