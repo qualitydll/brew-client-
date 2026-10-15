@@ -19,11 +19,16 @@ void main() {
 
     await tester.pumpWidget(
       MaterialApp(
-        home: Scaffold(
-          body: AppScope(state: state, child: const LogsPage()),
+        home: SizedBox(
+          width: 680,
+          height: 800,
+          child: Scaffold(
+            body: AppScope(state: state, child: const LogsPage()),
+          ),
         ),
       ),
     );
+    await tester.pumpAndSettle();
 
     final message = tester.getSize(find.byType(SelectableText));
     expect(message.width, greaterThan(560));
