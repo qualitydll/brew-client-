@@ -6,6 +6,7 @@ on:
       - main
       - qualitydll-android-mihomo-vpnservice
       - qualitydll-sing-box-android-engine
+      - fix/protocol-import-android
   pull_request:
     branches: [ main ]
   workflow_dispatch:
