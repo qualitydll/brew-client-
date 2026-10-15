@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 
 import '../../state/app_state.dart';
-import '../../state/models.dart';
 import '../widgets/common.dart';
 
 class ExperimentLabPage extends StatefulWidget {
