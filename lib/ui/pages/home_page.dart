@@ -491,120 +491,106 @@ class _Hero extends StatelessWidget {
   final AppState state;
 
   (String, String) get _texts => switch (state.status) {
-    ConnStatus.disconnected =>
-      state.profiles.isEmpty
-          ? ('Добро пожаловать', 'Добавьте подписку, чтобы начать')
-          : ('Не защищено', 'Нажмите, чтобы подключиться'),
+    ConnStatus.disconnected => state.profiles.isEmpty
+        ? ('Добро пожаловать', 'Добавьте подписку, чтобы начать')
+        : ('Не защищено', 'Готово к подключению'),
     ConnStatus.connecting => ('Подключение…', 'Запускаем ядро mihomo'),
-    ConnStatus.disconnecting => ('Отключение…', 'Возвращаем прямое соединение'),
-    ConnStatus.connected => ('Защищено', ''),
+    ConnStatus.disconnecting => ('Отключение…', 'Завершаем сессию'),
+    ConnStatus.connected => ('Защищено', 'Соединение активно'),
   };
 
   @override
   Widget build(BuildContext context) {
-    final t = Theme.of(context).textTheme;
     final scheme = Theme.of(context).colorScheme;
     final (title, subtitle) = _texts;
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 320),
+      curve: Curves.easeOutCubic,
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
+      decoration: BoxDecoration(
+        color: scheme.surfaceContainerLow.withValues(alpha: 0.55),
+        borderRadius: BorderRadius.circular(22),
+        border: Border.all(
+          color: (state.isConnected ? scheme.primary : scheme.outlineVariant)
+              .withValues(alpha: 0.45),
+        ),
+      ),
+      child: Row(
+        children: [
+          AnimatedContainer(
+            duration: const Duration(milliseconds: 300),
+            width: 12,
+            height: 12,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: state.isConnected
+                  ? scheme.primary
+                  : state.isBusy
+                      ? scheme.tertiary
+                      : scheme.outline,
+              boxShadow: state.isConnected
+                  ? [BoxShadow(color: scheme.primary.withValues(alpha: 0.35), blurRadius: 12)]
+                  : const [],
+            ),
+          ),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                AnimatedSwitcher(
+                  duration: const Duration(milliseconds: 250),
+                  child: Text(title, key: ValueKey(title),
+                    style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                      fontWeight: FontWeight.w750,
+                      color: state.isConnected ? scheme.primary : scheme.onSurface,
+                    )),
+                ),
+                const SizedBox(height: 3),
+                Text(subtitle, style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                  color: scheme.onSurfaceVariant,
+                )),
+              ],
+            ),
+          ),
+          if (state.isConnected && state.connectedAt != null)
+            _Uptime(since: state.connectedAt!),
+        ],
+      ),
+    );
+  }
+}
+
+class _TrafficValue extends StatelessWidget {
+  const _TrafficValue({
+    required this.icon,
+    required this.label,
+    required this.value,
+  });
+
+  final IconData icon;
+  final String label;
+  final String value;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
     return Column(
-      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        FilledButton.icon(
-          onPressed: state.profiles.isNotEmpty && !state.isBusy ? state.toggle : null,
-          style: FilledButton.styleFrom(
-            minimumSize: const Size(196, 52),
-            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-          ),
-          icon: state.isBusy
-              ? const SizedBox(
-                  width: 18,
-                  height: 18,
-                  child: CircularProgressIndicator(strokeWidth: 2),
-                )
-              : Icon(state.isConnected ? Icons.stop_rounded : Icons.play_arrow_rounded),
-          label: Text(
-            switch (state.status) {
-              ConnStatus.connecting => 'Подключение…',
-              ConnStatus.disconnecting => 'Отключение…',
-              ConnStatus.connected => 'Остановить',
-              ConnStatus.disconnected => 'Пуск',
-            },
-            style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
-          ),
-        ),
-        AnimatedSwitcher(
-          duration: const Duration(milliseconds: 400),
-          transitionBuilder: (child, anim) => FadeTransition(
-            opacity: anim,
-            child: SlideTransition(
-              position: Tween(begin: const Offset(0, 0.3), end: Offset.zero)
-                  .animate(
-                    CurvedAnimation(parent: anim, curve: Curves.easeOutCubic),
-                  ),
-              child: child,
-            ),
-          ),
-          child: Text(
-            title,
-            key: ValueKey(title),
-            style: t.headlineLarge?.copyWith(
-              fontWeight: FontWeight.w700,
-              color: state.isConnected ? scheme.primary : scheme.onSurface,
-            ),
-          ),
-        ),
-        const SizedBox(height: 6),
-        SizedBox(
-          height: 24,
-          child: state.isConnected && state.connectedAt != null
-              ? _Uptime(since: state.connectedAt!)
-              : Text(
-                  subtitle,
-                  style: t.bodyLarge?.copyWith(color: scheme.onSurfaceVariant),
-                ),
-        ),
-        const SizedBox(height: 28),
-        SegmentedButton<String>(
-          segments: const [
-            ButtonSegment(
-              value: 'rule',
-              label: Text('Умный'),
-              icon: Icon(Icons.alt_route_rounded),
-            ),
-            ButtonSegment(
-              value: 'global',
-              label: Text('Весь трафик'),
-              icon: Icon(Icons.language_rounded),
-            ),
-            ButtonSegment(
-              value: 'direct',
-              label: Text('Напрямую'),
-              icon: Icon(Icons.trending_flat_rounded),
-            ),
-          ],
-          selected: {state.settings.mode},
-          onSelectionChanged: (s) => state.setMode(s.first),
-          showSelectedIcon: false,
-        ),
-        AnimatedSize(
-          duration: const Duration(milliseconds: 300),
-          curve: Curves.easeOutCubic,
-          child: state.error == null && state.skipped.isEmpty
-              ? const SizedBox(width: 420)
-              : Padding(
-                  padding: const EdgeInsets.only(top: 20),
-                  child: _ErrorBanner(state: state),
-                ),
-        ),
-        if (state.profiles.isEmpty)
-          Padding(
-            padding: const EdgeInsets.only(top: 20),
-            child: FilledButton.icon(
-              onPressed: () => Shell.go(context, 2),
-              icon: const Icon(Icons.add_rounded),
-              label: const Text('Добавить подписку'),
-            ),
-          ),
+        Row(children: [
+          Icon(icon, size: 16, color: scheme.primary),
+          const SizedBox(width: 6),
+          Expanded(child: Text(label, style: Theme.of(context).textTheme.bodySmall?.copyWith(
+            color: scheme.onSurfaceVariant,
+          ))),
+        ]),
+        const SizedBox(height: 5),
+        Text(value, style: Theme.of(context).textTheme.titleMedium?.copyWith(
+          fontWeight: FontWeight.w700,
+          fontFeatures: const [FontFeature.tabularFigures()],
+        )),
       ],
     );
   }
