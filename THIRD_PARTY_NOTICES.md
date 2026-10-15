@@ -32,3 +32,17 @@ the `sing-box-source-v1.14.3` artifact alongside the APK.
 
 The DM Sans and Onest font files are licensed under the SIL Open Font License
 1.1. The license texts are included in `assets/fonts/OFL-*.txt`.
+
+
+## FlClash Android VPN service design
+
+Brew's Android VPN service lifecycle has been adapted using Android TUN lifecycle
+patterns and operational safeguards from [FlClash](https://github.com/chen08209/FlClash),
+Copyright the FlClash contributors. FlClash is distributed under the GNU General
+Public License v3.0 (GPL-3.0); Brew is also licensed under GPL-3.0-or-later.
+
+FlClash's `Core` and `ServiceController` classes are tied to its own Go Mobile
+bridge and are not drop-in compatible with Brew. This adaptation retains Brew's
+`libmihomo-android` bridge and existing Flutter method-channel contract.
+
+Upstream license: https://github.com/chen08209/FlClash/blob/main/LICENSE
