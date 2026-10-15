@@ -2,11 +2,7 @@
 
 <img src="https://raw.githubusercontent.com/qualitydll/brew-client-/main/brewbanner.png" alt="brew. — баннер проекта" width="100%" />
 
-<img src="assets/images/brewicon.jpg" alt="Логотип brew." width="112" />
-
-# brew.
-
-**Минималистичный VPN-клиент для Windows и Android — с фирменным логотипом Brew.**
+# Brew
 
 <a href="README.md"><img alt="Русский" src="https://img.shields.io/badge/🇷🇺_Русский-1E1410?style=for-the-badge&labelColor=1E1410" /></a>
 <a href="README.en.md"><img alt="English" src="https://img.shields.io/badge/🇬🇧_English-D97736?style=for-the-badge&labelColor=1E1410" /></a>
