@@ -325,6 +325,103 @@ class _HomePageState extends State<HomePage> {
     _ => null,
   };
 
+  Widget _dashboardEntry(String id, AppState state, int index, List<String> ids) {
+    final pairedId = _widgetPairs[id];
+    final primary = _widgetFor(id, state) ?? const SizedBox.shrink();
+    final paired = pairedId == null ? null : _widgetFor(pairedId, state);
+    final canPair = _widgetOrder.where((other) =>
+      other != id &&
+      !_widgetPairs.values.contains(other) &&
+      !_widgetPairs.containsKey(other) &&
+      (other != 'connections' || state.isConnected)
+    ).toList();
+    return Padding(
+      key: ValueKey('dashboard-$id'),
+      padding: const EdgeInsets.only(bottom: 12),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Expanded(
+            child: paired != null
+                ? Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Expanded(child: primary),
+                      const SizedBox(width: 10),
+                      Expanded(child: paired),
+                    ],
+                  )
+                : Align(
+                    alignment: Alignment.centerLeft,
+                    child: ConstrainedBox(
+                      constraints: BoxConstraints(
+                        maxWidth: switch (_widgetSizes[id] ?? 'large') {
+                          'small' => 360,
+                          'medium' => 620,
+                          _ => double.infinity,
+                        },
+                      ),
+                      child: primary,
+                    ),
+                  ),
+          ),
+          PopupMenuButton<String>(
+            tooltip: 'Настроить виджет',
+            onSelected: (action) => _manageWidget(id, action),
+            icon: const Icon(Icons.tune_rounded, size: 19),
+            itemBuilder: (context) => [
+              const PopupMenuItem(value: 'small', child: Text('Маленький размер')),
+              const PopupMenuItem(value: 'medium', child: Text('Средний размер')),
+              const PopupMenuItem(value: 'large', child: Text('Большой размер')),
+              if (id == 'start') ...[
+                const PopupMenuDivider(),
+                const PopupMenuItem(value: 'button-size:small', child: Text('Кнопка: маленькая')),
+                const PopupMenuItem(value: 'button-size:medium', child: Text('Кнопка: средняя')),
+                const PopupMenuItem(value: 'button-size:large', child: Text('Кнопка: большая')),
+                const PopupMenuDivider(),
+                const PopupMenuItem(value: 'button-align:left', child: Text('Кнопка слева')),
+                const PopupMenuItem(value: 'button-align:center', child: Text('Кнопка по центру')),
+                const PopupMenuItem(value: 'button-align:right', child: Text('Кнопка справа')),
+              ],
+              if (canPair.isNotEmpty) ...[
+                const PopupMenuDivider(),
+                const PopupMenuItem(enabled: false, child: Text('Соединить с…')),
+                for (final other in canPair)
+                  PopupMenuItem(value: 'pair:$other', child: Text(_widgetLabel(other))),
+              ],
+              if (pairedId != null || _widgetPairs.values.contains(id))
+                const PopupMenuItem(value: 'unpair', child: Text('Разъединить виджеты')),
+              const PopupMenuDivider(),
+              const PopupMenuItem(value: 'remove', child: Text('Удалить виджет')),
+            ],
+          ),
+          ReorderableDragStartListener(
+            index: index,
+            child: Padding(
+              padding: const EdgeInsets.only(top: 16, left: 2),
+              child: Icon(Icons.drag_indicator_rounded,
+                color: Theme.of(context).colorScheme.onSurfaceVariant),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  String _widgetLabel(String id) => switch (id) {
+    'start' => 'Кнопка подключения',
+    'routing' => 'Маршрутизация',
+    'server' => 'Сервер',
+    'speed' => 'Скорость',
+    'ip' => 'Публичный IP',
+    'profile' => 'Профиль',
+    'traffic' => 'Трафик',
+    'session' => 'Время сессии',
+    'connections' => 'Соединения',
+    'note' => 'Текстовый блок',
+    _ => id,
+  };
+
   @override
   Widget build(BuildContext context) {
     final state = AppScope.of(context);
@@ -357,6 +454,18 @@ class _HomePageState extends State<HomePage> {
               onSelected: _addWidget,
               icon: const Icon(Icons.add_rounded),
               itemBuilder: (context) => [
+                if (!_widgetOrder.contains('start'))
+                  const PopupMenuItem(value: 'start', child: ListTile(
+                    contentPadding: EdgeInsets.zero,
+                    leading: Icon(Icons.power_settings_new_rounded),
+                    title: Text('Кнопка подключения'),
+                  )),
+                if (!_widgetOrder.contains('routing'))
+                  const PopupMenuItem(value: 'routing', child: ListTile(
+                    contentPadding: EdgeInsets.zero,
+                    leading: Icon(Icons.alt_route_rounded),
+                    title: Text('Маршрутизация'),
+                  )),
                 if (!_widgetOrder.contains('server'))
                   const PopupMenuItem(value: 'server', child: ListTile(
                     contentPadding: EdgeInsets.zero,
@@ -386,6 +495,18 @@ class _HomePageState extends State<HomePage> {
                     contentPadding: EdgeInsets.zero,
                     leading: Icon(Icons.alt_route_rounded),
                     title: Text('Соединения'),
+                  )),
+                if (!_widgetOrder.contains('traffic'))
+                  const PopupMenuItem(value: 'traffic', child: ListTile(
+                    contentPadding: EdgeInsets.zero,
+                    leading: Icon(Icons.swap_vert_rounded),
+                    title: Text('Статистика трафика'),
+                  )),
+                if (!_widgetOrder.contains('session'))
+                  const PopupMenuItem(value: 'session', child: ListTile(
+                    contentPadding: EdgeInsets.zero,
+                    leading: Icon(Icons.timer_outlined),
+                    title: Text('Время сессии'),
                   )),
                 const PopupMenuItem(value: 'note', child: ListTile(
                   contentPadding: EdgeInsets.zero,
@@ -431,50 +552,7 @@ class _HomePageState extends State<HomePage> {
           },
           children: [
             for (var i = 0; i < ids.length; i++)
-              Padding(
-                key: ValueKey('dashboard-${ids[i]}'),
-                padding: const EdgeInsets.only(bottom: 12),
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Expanded(
-                      child: Align(
-                        alignment: Alignment.centerLeft,
-                        child: ConstrainedBox(
-                          constraints: BoxConstraints(
-                            maxWidth: switch (_widgetSizes[ids[i]] ?? 'large') {
-                              'small' => 360,
-                              'medium' => 620,
-                              _ => double.infinity,
-                            },
-                          ),
-                          child: _widgetFor(ids[i], state) ?? const SizedBox.shrink(),
-                        ),
-                      ),
-                    ),
-                    PopupMenuButton<String>(
-                      tooltip: 'Настроить виджет',
-                      onSelected: (action) => _manageWidget(ids[i], action),
-                      icon: const Icon(Icons.tune_rounded, size: 19),
-                      itemBuilder: (context) => const [
-                        PopupMenuItem(value: 'small', child: Text('Маленький размер')),
-                        PopupMenuItem(value: 'medium', child: Text('Средний размер')),
-                        PopupMenuItem(value: 'large', child: Text('Большой размер')),
-                        PopupMenuDivider(),
-                        PopupMenuItem(value: 'remove', child: Text('Удалить виджет')),
-                      ],
-                    ),
-                    ReorderableDragStartListener(
-                      index: i,
-                      child: Padding(
-                        padding: const EdgeInsets.only(top: 16, left: 2),
-                        child: Icon(Icons.drag_indicator_rounded,
-                          color: Theme.of(context).colorScheme.onSurfaceVariant),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
+              _dashboardEntry(ids[i], state, i, ids),
           ],
         ),
         if (state.error != null || state.skipped.isNotEmpty) ...[
