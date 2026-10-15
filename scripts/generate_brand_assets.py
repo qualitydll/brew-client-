@@ -3,7 +3,7 @@ from pathlib import Path
 from PIL import Image, ImageOps
 
 ROOT = Path(__file__).resolve().parents[1]
-SOURCE = ROOT / "assets" / "images" / "brewicon.jpg"
+SOURCE = ROOT / "brewicon.png"
 ASSET_DIR = ROOT / "assets" / "images"
 ANDROID_RES = ROOT / "android" / "app" / "src" / "main" / "res"
 WINDOWS_ICON = ROOT / "windows" / "runner" / "resources" / "app_icon.ico"
@@ -55,7 +55,7 @@ def main() -> None:
             sizes=[(16, 16), (24, 24), (32, 32), (48, 48), (64, 64), (128, 128), (256, 256)],
         )
 
-    print("Generated uncropped Brew artwork and platform icons from brewicon.jpg.")
+    print("Generated uncropped Brew artwork and platform icons from brewicon.png.")
 
 
 if __name__ == "__main__":
