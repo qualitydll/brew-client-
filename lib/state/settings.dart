@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -74,6 +76,30 @@ class Settings {
   String? get corePath => _prefs.getString('corePath');
   set corePath(String? v) =>
       v == null ? _prefs.remove('corePath') : _prefs.setString('corePath', v);
+
+  List<String> get homeWidgetOrder =>
+      _prefs.getStringList('homeWidgetOrder') ??
+      ['server', 'speed', 'ip', 'profile'];
+  set homeWidgetOrder(List<String> value) =>
+      _prefs.setStringList('homeWidgetOrder', value);
+
+  Map<String, String> get homeWidgetSizes {
+    try {
+      final raw = _prefs.getString('homeWidgetSizes');
+      if (raw == null) return {};
+      return (jsonDecode(raw) as Map<String, dynamic>)
+          .map((key, value) => MapEntry(key, value.toString()));
+    } catch (_) {
+      return {};
+    }
+  }
+  set homeWidgetSizes(Map<String, String> value) =>
+      _prefs.setString('homeWidgetSizes', jsonEncode(value));
+
+  String? get homeWidgetNote => _prefs.getString('homeWidgetNote');
+  set homeWidgetNote(String? value) => value == null
+      ? _prefs.remove('homeWidgetNote')
+      : _prefs.setString('homeWidgetNote', value);
 
   String? get activeProfileId => _prefs.getString('activeProfile');
   set activeProfileId(String? v) => v == null
