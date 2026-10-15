@@ -131,7 +131,7 @@ Map<String, dynamic> applyCoreOptions(
     final dns = existingDns is Map
         ? existingDns.cast<String, dynamic>()
         : <String, dynamic>{};
-    cfg['dns'] = <String, dynamic>{
+    final mergedDns = <String, dynamic>{
       'enable': true,
       'ipv6': true,
       'enhanced-mode': 'fake-ip',
@@ -149,10 +149,11 @@ Map<String, dynamic> applyCoreOptions(
         'https://dns.google/dns-query',
       ],
       ...dns,
-      // DNS must be active for the Android external TUN path to resolve
-      // queries; preserve all other provider-supplied DNS options.
-      'enable': true,
     };
+    // DNS must be active for the Android external TUN path to resolve
+    // queries; preserve all other provider-supplied DNS options.
+    mergedDns['enable'] = true;
+    cfg['dns'] = mergedDns;
   }
   return cfg;
 }
