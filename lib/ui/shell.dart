@@ -12,7 +12,6 @@ import 'pages/profiles_page.dart';
 import 'pages/servers_page.dart';
 import 'pages/settings_page.dart';
 import 'widgets/aurora_background.dart';
-import 'widgets/brew_mark.dart';
 
 class Shell extends StatefulWidget {
   const Shell({super.key});
