@@ -5,9 +5,17 @@ import android.os.Build
 import io.github.oviron.libmihomo.Clash
 import java.io.File
 
+/**
+ * Owns one-time initialization of the embedded Mihomo JNI bridge.
+ *
+ * Configuration validation happens in MainActivity before the VpnService
+ * starts, so the service must reuse the already-loaded bridge instead of
+ * loading the same native Go runtime a second time.
+ */
 internal object MihomoRuntime {
     private val requiredLibraries = listOf("libclash.so", "libmihomo-jni.so")
 
+    @Synchronized
     fun load(context: Context) {
         val nativeLibraryDir = File(context.applicationInfo.nativeLibraryDir)
         val missing = requiredLibraries.filterNot { File(nativeLibraryDir, it).isFile }
@@ -17,7 +25,14 @@ internal object MihomoRuntime {
                 missing.joinToString()
         }
 
-        Clash.load(nativeLibraryDir.absolutePath)
+        // libmihomo-android explicitly requires Clash.load() to be called once
+        // per process. validateConfig() loads it in MainActivity; when the
+        // service later starts, loading it again can reset/reinitialize the
+        // native bridge before quickSetup() applies the profile.
+        if (!Clash.isLoaded()) {
+            Clash.load(nativeLibraryDir.absolutePath)
+        }
+
         Clash.assertReady()
         val abi = Clash.bridgeABI()
         check(abi == Clash.EXPECTED_BRIDGE_ABI) {
