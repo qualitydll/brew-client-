@@ -397,9 +397,26 @@ class _HomePageState extends State<HomePage> {
                     ),
                   ),
           ),
+          if (_editMode && canPair.isNotEmpty)
+            PopupMenuButton<String>(
+              tooltip: 'Соединить этот блок с другим',
+              icon: const Icon(Icons.link_rounded, size: 19),
+              onSelected: (action) => _manageWidget(id, action),
+              itemBuilder: (context) => [
+                const PopupMenuItem(enabled: false, child: Text('Соединить с…')),
+                for (final other in canPair)
+                  PopupMenuItem(value: 'pair:$other', child: Text(_widgetLabel(other))),
+              ],
+            ),
+          if (_editMode && (pairedId != null || _widgetPairs.values.contains(id)))
+            IconButton(
+              tooltip: 'Разъединить блоки',
+              icon: const Icon(Icons.link_off_rounded, size: 19),
+              onPressed: () => _manageWidget(id, 'unpair'),
+            ),
           if (_editMode)
             PopupMenuButton<String>(
-            tooltip: 'Настроить блок: размер, соединение и удаление',
+            tooltip: 'Настроить блок: размер и удаление',
             onSelected: (action) => _manageWidget(id, action),
             icon: const Icon(Icons.tune_rounded, size: 19),
             itemBuilder: (context) => [
@@ -416,14 +433,6 @@ class _HomePageState extends State<HomePage> {
                 const PopupMenuItem(value: 'button-align:center', child: Text('Кнопка по центру')),
                 const PopupMenuItem(value: 'button-align:right', child: Text('Кнопка справа')),
               ],
-              if (canPair.isNotEmpty) ...[
-                const PopupMenuDivider(),
-                const PopupMenuItem(enabled: false, child: Text('Соединить с…')),
-                for (final other in canPair)
-                  PopupMenuItem(value: 'pair:$other', child: Text(_widgetLabel(other))),
-              ],
-              if (pairedId != null || _widgetPairs.values.contains(id))
-                const PopupMenuItem(value: 'unpair', child: Text('Разъединить виджеты')),
               const PopupMenuDivider(),
               const PopupMenuItem(value: 'remove', child: Text('Удалить виджет')),
             ],
