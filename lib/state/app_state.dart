@@ -261,6 +261,8 @@ class AppState extends ChangeNotifier {
       final res = await client
           .get(
             Uri.parse(url),
+            // Mikan filters newer Mihomo-only protocols by this version.
+            // Brew bundles Mihomo 1.19.32 on Android and Windows.
             headers: {'User-Agent': 'mihomo/1.19.32 brew/0.1'},
           )
           .timeout(const Duration(seconds: 20));
