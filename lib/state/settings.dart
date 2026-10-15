@@ -67,6 +67,11 @@ class Settings {
       ? _prefs.remove('preferredServer')
       : _prefs.setString('preferredServer', v);
 
+  String? get preferredServerGroup => _prefs.getString('preferredServerGroup');
+  set preferredServerGroup(String? v) => v == null || v.isEmpty
+      ? _prefs.remove('preferredServerGroup')
+      : _prefs.setString('preferredServerGroup', v);
+
   List<String> get favoriteServers =>
       _prefs.getStringList('favoriteServers') ?? [];
   set favoriteServers(List<String> v) =>
