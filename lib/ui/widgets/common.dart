@@ -75,7 +75,7 @@ class PingChip extends StatelessWidget {
     final d = delay;
     final (Color bg, Color fg, String label) = switch (d) {
       null => (scheme.surfaceContainerHighest, scheme.onSurfaceVariant, '— мс'),
-      <= 0 => (scheme.errorContainer, scheme.onErrorContainer, 'нет ответа'),
+      <= 0 => (scheme.surfaceContainerHighest, scheme.onSurfaceVariant, '— мс'),
       < 200 => (
         const Color(0xFF2E7D32).withValues(alpha: 0.18),
         const Color(0xFF43A047),
