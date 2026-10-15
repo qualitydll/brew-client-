@@ -19,7 +19,10 @@ def square_icon(image: Image.Image, size: int) -> Image.Image:
         method=Image.Resampling.LANCZOS,
     )
     canvas = Image.new("RGBA", (size, size), (*BRAND_BACKGROUND, 255))
-    canvas.alpha_composite(fitted, ((size - fitted.width) // 2, (size - fitted.height) // 2))
+    canvas.alpha_composite(
+        fitted,
+        ((size - fitted.width) // 2, (size - fitted.height) // 2),
+    )
     return canvas.convert("RGB")
 
 
@@ -59,7 +62,7 @@ def main() -> None:
             sizes=[(16, 16), (24, 24), (32, 32), (48, 48), (64, 64), (128, 128), (256, 256)],
         )
 
-    print("Generated uncropped Brew artwork and platform icons from brewicon.jpg.")
+    print("Generated Brew artwork and platform icons from brewicon.png.")
 
 
 if __name__ == "__main__":
