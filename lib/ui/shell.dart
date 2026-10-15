@@ -161,7 +161,7 @@ class _Logo extends StatelessWidget {
         ),
       ),
       child: Image.asset(
-        Platform.isAndroid ? 'brewicon.png' : 'assets/images/brewicon.jpg',
+        'brewicon.png',
         fit: BoxFit.contain,
         alignment: Alignment.center,
         filterQuality: FilterQuality.high,
