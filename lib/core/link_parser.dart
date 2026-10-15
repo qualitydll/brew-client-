@@ -264,24 +264,27 @@ Map<String, dynamic> _parseVless(String link) {
       'client-fingerprint',
       q['fp'] ?? (security == 'reality' ? 'chrome' : null),
     );
-    // Mihomo's VLESS encryption field carries the ML-KEM-768/X25519 PQ
-    // handshake configuration verbatim; it is not the TLS encryption flag.
-    _putNonEmpty(p, 'encryption', q['encryption']);
-    _putNonEmpty(
-      p,
-      'packet-encoding',
-      q['packet-encoding'] ?? q['packetEncoding'],
-    );
     if (_truthy(q['allowInsecure']) || _truthy(q['insecure'])) {
       p['skip-cert-verify'] = true;
     }
     if (security == 'reality') {
+      final publicKey = q['pbk'];
+      final shortId = q['sid'];
       p['reality-opts'] = {
-        'public-key': q['pbk'] ?? '',
-        if ((q['sid'] ?? '').isNotEmpty) 'short-id': q['sid'],
+        if (publicKey != null && publicKey.isNotEmpty) 'public-key': publicKey,
+        if (shortId != null && shortId.isNotEmpty) 'short-id': shortId,
       };
     }
   }
+  // These are independent VLESS fields, not TLS-only options.
+  // Mihomo's encryption value carries the ML-KEM-768/X25519 PQ handshake
+  // configuration verbatim.
+  _putNonEmpty(p, 'encryption', q['encryption']);
+  _putNonEmpty(
+    p,
+    'packet-encoding',
+    q['packet-encoding'] ?? q['packetEncoding'],
+  );
   _applyTransport(
     p,
     network: q['type'],
