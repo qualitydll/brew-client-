@@ -61,6 +61,8 @@ android {
     packaging {
         jniLibs {
             useLegacyPackaging = true
+            // The Mihomo AAR ships several ABIs; exclude unused native libraries from the APK.
+            excludes += setOf("lib/armeabi-v7a/**", "lib/x86/**", "lib/x86_64/**")
         }
     }
 
