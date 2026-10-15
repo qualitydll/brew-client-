@@ -18,6 +18,14 @@ class SettingsPage extends StatelessWidget {
   Widget build(BuildContext context) {
     final state = AppScope.of(context);
     final s = state.settings;
+    final startupServers = <(String, String)>[
+      for (final group in state.groups.where((g) => g.isSelectable))
+        for (final name in group.all)
+          if (!(state.nodes[name]?.isGroup ?? false) &&
+              name != 'DIRECT' &&
+              name != 'REJECT')
+            (group.name, name),
+    ];
     final sections = <Widget>[
       _Section(
         icon: Icons.palette_rounded,
@@ -252,6 +260,43 @@ class SettingsPage extends StatelessWidget {
                   if (context.mounted) showSnack(context, 'Не удалось обновить запуск: $e');
                 }
               },
+            ),
+            ListTile(
+              contentPadding: EdgeInsets.zero,
+              title: const Text('Сервер для автоподключения'),
+              subtitle: Text(
+                s.preferredServer == null
+                    ? 'Не выбран'
+                    : '${s.preferredServer} · ${s.preferredServerGroup ?? ''}',
+              ),
+              trailing: const Icon(Icons.chevron_right_rounded),
+              onTap: startupServers.isEmpty
+                  ? null
+                  : () async {
+                      final selected = await showDialog<(String, String)>(
+                        context: context,
+                        builder: (dialogContext) => SimpleDialog(
+                          title: const Text('Выберите сервер'),
+                          children: [
+                            for (final entry in startupServers)
+                              SimpleDialogOption(
+                                onPressed: () => Navigator.pop(dialogContext, entry),
+                                child: Row(
+                                  children: [
+                                    Expanded(child: Text(entry.$2)),
+                                    if (entry.$2 == s.preferredServer &&
+                                        entry.$1 == s.preferredServerGroup)
+                                      Icon(Icons.check_rounded, color: Theme.of(dialogContext).colorScheme.primary),
+                                  ],
+                                ),
+                              ),
+                          ],
+                        ),
+                      );
+                      if (selected != null) {
+                        await state.setPreferredServer(selected.$1, selected.$2);
+                      }
+                    },
             ),
             SwitchListTile(
               contentPadding: EdgeInsets.zero,
