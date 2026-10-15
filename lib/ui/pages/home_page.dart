@@ -17,8 +17,32 @@ class HomePage extends StatelessWidget {
     return LayoutBuilder(
       builder: (context, constraints) {
         final compact = constraints.maxWidth < 600;
+        if (compact) {
+          // Fit the essential controls on one phone screen. The orb scales
+          // with the available height rather than forcing vertical scrolling.
+          final orbSize = ((constraints.maxHeight - 370) / 1.7)
+              .clamp(76.0, 140.0);
+          return Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            child: Center(
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 520),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    _Hero(state: state, compact: true, orbSize: orbSize),
+                    const SizedBox(height: 12),
+                    _ServerCard(state: state, compact: true),
+                  ],
+                ),
+              ),
+            ),
+          );
+        }
+
         return SingleChildScrollView(
-          padding: EdgeInsets.fromLTRB(compact ? 20 : 32, 24, compact ? 20 : 32, 32),
+          padding: const EdgeInsets.fromLTRB(32, 24, 32, 32),
           child: ConstrainedBox(
             constraints: const BoxConstraints(maxWidth: 680),
             child: Center(
@@ -39,8 +63,14 @@ class HomePage extends StatelessWidget {
 }
 
 class _Hero extends StatelessWidget {
-  const _Hero({required this.state});
+  const _Hero({
+    required this.state,
+    this.compact = false,
+    this.orbSize = 248,
+  });
   final AppState state;
+  final bool compact;
+  final double orbSize;
 
   (String, String) get _texts => switch (state.status) {
     ConnStatus.disconnected =>
@@ -61,6 +91,7 @@ class _Hero extends StatelessWidget {
       mainAxisSize: MainAxisSize.min,
       children: [
         ConnectOrb(
+          size: orbSize,
           status: state.status,
           enabled: state.profiles.isNotEmpty,
           onTap: state.toggle,
@@ -80,7 +111,7 @@ class _Hero extends StatelessWidget {
           child: Text(
             title,
             key: ValueKey(title),
-            style: t.headlineLarge?.copyWith(
+            style: (compact ? t.headlineMedium : t.headlineLarge)?.copyWith(
               fontWeight: FontWeight.w700,
               color: state.isConnected ? scheme.primary : scheme.onSurface,
             ),
@@ -96,7 +127,7 @@ class _Hero extends StatelessWidget {
                   style: t.bodyLarge?.copyWith(color: scheme.onSurfaceVariant),
                 ),
         ),
-        const SizedBox(height: 28),
+        SizedBox(height: compact ? 12 : 28),
         AnimatedSize(
           duration: const Duration(milliseconds: 300),
           curve: Curves.easeOutCubic,
@@ -107,7 +138,7 @@ class _Hero extends StatelessWidget {
                   child: _ErrorBanner(state: state),
                 ),
         ),
-        if (state.profiles.isEmpty)
+        if (state.profiles.isEmpty && !compact)
           Padding(
             padding: const EdgeInsets.only(top: 20),
             child: FilledButton.icon(
@@ -234,8 +265,9 @@ class _CardTitle extends StatelessWidget {
 }
 
 class _ServerCard extends StatefulWidget {
-  const _ServerCard({required this.state});
+  const _ServerCard({required this.state, this.compact = false});
   final AppState state;
+  final bool compact;
 
   @override
   State<_ServerCard> createState() => _ServerCardState();
@@ -259,10 +291,13 @@ class _ServerCardState extends State<_ServerCard> {
   @override
   Widget build(BuildContext context) {
     final state = widget.state;
+    final compact = widget.compact;
     final t = Theme.of(context).textTheme;
     final scheme = Theme.of(context).colorScheme;
-    final server = state.currentServer;
-    final chain = state.currentChain;
+    // Keep the preferred node saved for the next connection, but don't show
+    // it as an active server while the VPN is disconnected.
+    final server = state.isConnected ? state.currentServer : null;
+    final chain = state.isConnected ? state.currentChain : const <String>[];
     return GlassCard(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -285,8 +320,12 @@ class _ServerCardState extends State<_ServerCard> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  server ?? state.settings.preferredServer ??
-                      (state.profiles.isEmpty ? 'Добавьте подписку' : 'Сервер не выбран'),
+                  server ??
+                      (state.isConnected
+                          ? 'Сервер не выбран'
+                          : state.profiles.isEmpty
+                              ? 'Добавьте подписку'
+                              : 'Отключено'),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: t.titleLarge?.copyWith(fontWeight: FontWeight.w600),
@@ -302,21 +341,51 @@ class _ServerCardState extends State<_ServerCard> {
             ),
           ),
           const SizedBox(height: 16),
-          Row(
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
             children: [
               if (state.isConnected)
                 FilledButton.tonalIcon(
+                  style: FilledButton.styleFrom(
+                    visualDensity: VisualDensity.compact,
+                    padding: EdgeInsets.symmetric(
+                      horizontal: compact ? 12 : 16,
+                      vertical: compact ? 8 : 10,
+                    ),
+                    minimumSize: const Size(0, 40),
+                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  ),
                   onPressed: _finding ? null : _best,
                   icon: _finding
-                      ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2))
-                      : const Icon(Icons.auto_awesome_rounded),
-                  label: const Text('Быстрый сервер'),
+                      ? const SizedBox(
+                          width: 16,
+                          height: 16,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const Icon(Icons.auto_awesome_rounded, size: 18),
+                  label: const Text('Самый быстрый'),
                 ),
-              if (state.isConnected) const SizedBox(width: 8),
               FilledButton.icon(
+                style: FilledButton.styleFrom(
+                  visualDensity: VisualDensity.compact,
+                  padding: EdgeInsets.symmetric(
+                    horizontal: compact ? 12 : 16,
+                    vertical: compact ? 8 : 10,
+                  ),
+                  minimumSize: const Size(0, 40),
+                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                ),
                 onPressed: () => Shell.go(context, state.profiles.isEmpty ? 2 : 1),
-                icon: Icon(state.profiles.isEmpty ? Icons.add_rounded : Icons.dns_rounded),
-                label: Text(state.profiles.isEmpty ? 'Добавить подписку' : 'Выбрать сервер'),
+                icon: Icon(
+                  state.profiles.isEmpty ? Icons.add_rounded : Icons.dns_rounded,
+                  size: 18,
+                ),
+                label: Text(
+                  state.profiles.isEmpty ? 'Добавить подписку' : 'Выбрать сервер',
+                  maxLines: 1,
+                  softWrap: false,
+                ),
               ),
             ],
           ),
