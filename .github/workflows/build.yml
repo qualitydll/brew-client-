@@ -28,6 +28,27 @@ jobs:
     - name: Build Windows
       run: flutter build windows --release
       
+    - name: Bundle pinned Mihomo core
+      shell: pwsh
+      run: |
+        $version = "v1.19.32"
+        $archive = Join-Path $env:RUNNER_TEMP "mihomo-windows-amd64-$version.zip"
+        $url = "https://github.com/MetaCubeX/mihomo/releases/download/$version/mihomo-windows-amd64-$version.zip"
+        Invoke-WebRequest -Uri $url -OutFile $archive
+        $extract = Join-Path $env:RUNNER_TEMP "mihomo-core"
+        Expand-Archive -Path $archive -DestinationPath $extract -Force
+        $binary = Get-ChildItem -Path $extract -Filter "mihomo.exe" -File -Recurse | Select-Object -First 1
+        if ($null -eq $binary) {
+          throw "Pinned Mihomo archive did not contain mihomo.exe."
+        }
+        $target = "build/windows/x64/runner/Release/core"
+        New-Item -ItemType Directory -Force -Path $target | Out-Null
+        Copy-Item $binary.FullName (Join-Path $target "mihomo.exe") -Force
+        & (Join-Path $target "mihomo.exe") -v
+        if ($LASTEXITCODE -ne 0) {
+          throw "Bundled Mihomo core failed to start."
+        }
+
     - name: Upload Artifact
       uses: actions/upload-artifact@v4
       with:
