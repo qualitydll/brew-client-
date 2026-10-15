@@ -111,29 +111,41 @@ class MihomoApi {
     }
   }
 
-  /// Returns delay in ms, or -1 on timeout/failure.
+  /// Returns delay in ms, or -1 when every test endpoint fails.
+  /// A blocked test URL must not make a working proxy look offline.
   Future<int> delay(String name, {int timeoutMs = 5000}) async {
-    try {
-      if (_useNativeBridge) {
-        final result = await _androidAction(
-          'testDelay',
-          jsonEncode({
-            'proxyName': name,
-            'testUrl': kTestUrl,
-            'timeout': timeoutMs,
-          }),
-        );
-        return (result as num?)?.toInt() ?? -1;
+    const testUrls = [
+      kTestUrl,
+      'https://www.gstatic.com/generate_204',
+    ];
+    final perAttempt = timeoutMs < 2500 ? timeoutMs : 2500;
+    for (final url in testUrls) {
+      try {
+        if (_useNativeBridge) {
+          final result = await _androidAction(
+            'testDelay',
+            jsonEncode({
+              'proxyName': name,
+              'testUrl': url,
+              'timeout': perAttempt,
+            }),
+          );
+          final delay = (result as num?)?.toInt() ?? -1;
+          if (delay > 0) return delay;
+        } else {
+          final j = await _getJson(
+            '/proxies/${Uri.encodeComponent(name)}/delay',
+            query: {'url': url, 'timeout': '$perAttempt'},
+            timeout: Duration(milliseconds: perAttempt + 1500),
+          );
+          final delay = (j['delay'] as num?)?.toInt() ?? -1;
+          if (delay > 0) return delay;
+        }
+      } catch (_) {
+        // Try the alternate endpoint before declaring the delay unknown.
       }
-      final j = await _getJson(
-        '/proxies/${Uri.encodeComponent(name)}/delay',
-        query: {'url': kTestUrl, 'timeout': '$timeoutMs'},
-        timeout: Duration(milliseconds: timeoutMs + 2000),
-      );
-      return (j['delay'] as num?)?.toInt() ?? -1;
-    } catch (_) {
-      return -1;
     }
+    return -1;
   }
 
   Future<Map<String, int>> groupDelay(
@@ -152,12 +164,39 @@ class MihomoApi {
         );
         return Map.fromEntries(values);
       }
-      final j = await _getJson(
-        '/group/${Uri.encodeComponent(group)}/delay',
-        query: {'url': kTestUrl, 'timeout': '$timeoutMs'},
-        timeout: Duration(milliseconds: timeoutMs + 5000),
+      try {
+        final j = await _getJson(
+          '/group/${Uri.encodeComponent(group)}/delay',
+          query: {'url': kTestUrl, 'timeout': '$timeoutMs'},
+          timeout: Duration(milliseconds: timeoutMs + 5000),
+        );
+        final values = j.map((k, v) => MapEntry(k, (v as num).toInt()));
+        if (values.values.any((value) => value > 0)) return values;
+      } catch (_) {
+        // Retry individual nodes against the alternate test URL below.
+      }
+
+      final all = await proxies();
+      final groupData = all[group];
+      final names = groupData is Map && groupData['all'] is List
+          ? (groupData['all'] as List).whereType<String>().where((name) {
+              if (name == 'DIRECT' || name == 'REJECT') return false;
+              final item = all[name];
+              final type = item is Map ? item['type']?.toString() : null;
+              return !const {
+                'Selector',
+                'URLTest',
+                'Fallback',
+                'LoadBalance',
+                'Relay',
+              }.contains(type);
+            }).toList()
+          : <String>[];
+      final values = await Future.wait(
+        names.map((name) async =>
+            MapEntry(name, await delay(name, timeoutMs: timeoutMs))),
       );
-      return j.map((k, v) => MapEntry(k, (v as num).toInt()));
+      return Map.fromEntries(values);
     } catch (_) {
       return {};
     }
