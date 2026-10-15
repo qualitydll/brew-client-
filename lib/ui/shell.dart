@@ -7,7 +7,6 @@ import 'package:window_manager/window_manager.dart';
 import '../state/app_state.dart';
 import '../state/models.dart';
 import 'pages/home_page.dart';
-import 'pages/experiment_lab_page.dart';
 import 'pages/logs_page.dart';
 import 'pages/profiles_page.dart';
 import 'pages/servers_page.dart';
@@ -34,11 +33,10 @@ class _Dest {
 
 const _dests = [
   _Dest('Главная', Icons.bolt_outlined, Icons.bolt_rounded),
-  _Dest('Серверы', Icons.public_outlined, Icons.public_rounded),
-  _Dest('Подписки', Icons.layers_outlined, Icons.layers_rounded),
+  _Dest('Узлы', Icons.public_outlined, Icons.public_rounded),
+  _Dest('Профили', Icons.layers_outlined, Icons.layers_rounded),
   _Dest('Журнал', Icons.receipt_long_outlined, Icons.receipt_long_rounded),
-  _Dest('Настройки', Icons.tune_outlined, Icons.tune_rounded),
-  _Dest('Experiment Lab', Icons.science_outlined, Icons.science_rounded),
+  _Dest('Настр.', Icons.tune_outlined, Icons.tune_rounded),
 ];
 
 class _ShellState extends State<Shell> {
@@ -58,8 +56,7 @@ class _ShellState extends State<Shell> {
     1 => const ServersPage(),
     2 => const ProfilesPage(),
     3 => const LogsPage(),
-    4 => const SettingsPage(),
-    _ => const ExperimentLabPage(),
+    _ => const SettingsPage(),
   };
 
   @override
@@ -85,6 +82,7 @@ class _ShellState extends State<Shell> {
       bottomNavigationBar: wide
           ? null
           : NavigationBar(
+              labelBehavior: NavigationDestinationLabelBehavior.onlyShowSelected,
               selectedIndex: _index,
               onDestinationSelected: _select,
               destinations: [
