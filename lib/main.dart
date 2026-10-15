@@ -20,14 +20,18 @@ Future<void> main() async {
   if (isDesktop) {
     await windowManager.ensureInitialized();
     const options = WindowOptions(
-      size: Size(1180, 760),
-      minimumSize: Size(920, 640),
+      size: Size(760, 760),
+      minimumSize: Size(760, 760),
+      maximumSize: Size(760, 760),
       center: true,
       title: kAppName,
-      titleBarStyle: TitleBarStyle.hidden,
+      titleBarStyle: TitleBarStyle.normal,
       backgroundColor: Colors.transparent,
     );
     await windowManager.waitUntilReadyToShow(options, () async {
+      await windowManager.setResizable(false);
+      await windowManager.setMaximizable(false);
+      await windowManager.setSize(const Size(760, 760));
       await windowManager.show();
       await windowManager.focus();
     });
@@ -67,7 +71,7 @@ class BrewApp extends StatelessWidget {
                 ? lightDynamic?.primary ?? kBrewOrange
                 : s.seedColor;
             ColorScheme scheme(Brightness b) =>
-                brewScheme(seed, b, s.schemeVariant);
+                brewScheme(seed, b, s.schemeVariant, accentRole: s.accentRole);
             return MaterialApp(
               title: kAppName,
               debugShowCheckedModeBanner: false,
