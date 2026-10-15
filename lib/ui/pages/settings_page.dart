@@ -80,8 +80,7 @@ class SettingsPage extends StatelessWidget {
             selected: {s.accentRole},
             showSelectedIcon: false,
             onSelectionChanged: (v) {
-              s.accentRole = v.first;
-              state.notifyListeners();
+              state.setAccentRole(v.first);
             },
           ),
           const SizedBox(height: 6),
