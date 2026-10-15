@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'link_parser.dart';
 
 const kMainGroup = 'PROXY';
@@ -88,7 +90,9 @@ Map<String, dynamic> applyCoreOptions(
   cfg['allow-lan'] = o.allowLan;
   cfg['bind-address'] = '*';
   cfg['mode'] = o.mode;
-  cfg['log-level'] = 'info';
+  // Mihomo's verbose info stream can flood the UI/log pipeline on Windows.
+  // Keep Android's existing detail while reducing desktop background work.
+  cfg['log-level'] = Platform.isWindows ? 'warning' : 'info';
   cfg['ipv6'] = cfg['ipv6'] ?? true;
   cfg['external-controller'] = '127.0.0.1:${o.apiPort}';
   cfg['secret'] = o.secret;
