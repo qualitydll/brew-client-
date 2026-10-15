@@ -150,7 +150,7 @@ class MihomoVpnService : VpnService() {
         val homeDir = configFile.parentFile
             ?: error("Mihomo config has no parent directory.")
         val initParams = JSONObject()
-            .put("homeDir", homeDir.absolutePath)
+            .put("home-dir", homeDir.absolutePath)
             .put("version", Build.VERSION.SDK_INT)
             .toString()
         val setupParams = JSONObject()
