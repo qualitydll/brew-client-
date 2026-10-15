@@ -124,6 +124,8 @@ Map<String, dynamic>? parseLink(String link) {
       return _parseHysteria2(link);
     case 'tuic':
       return _parseTuic(link);
+    case 'anytls':
+      return _parseAnyTls(link);
   }
   return null;
 }
@@ -158,6 +160,7 @@ void _applyTransport(
   String? host,
   String? serviceName,
   String? headerType,
+  String? mode,
 }) {
   final net = (network == null || network.isEmpty) ? 'tcp' : network;
   switch (net) {
@@ -184,6 +187,7 @@ void _applyTransport(
       p['xhttp-opts'] = {
         'path': (path == null || path.isEmpty) ? '/' : path,
         if (host != null && host.isNotEmpty) 'host': host,
+        if (mode != null && mode.isNotEmpty) 'mode': mode,
       };
     case 'tcp':
       if (headerType == 'http') {
@@ -264,12 +268,23 @@ Map<String, dynamic> _parseVless(String link) {
       p['skip-cert-verify'] = true;
     }
     if (security == 'reality') {
+      final publicKey = q['pbk'];
+      final shortId = q['sid'];
       p['reality-opts'] = {
-        'public-key': q['pbk'] ?? '',
-        if ((q['sid'] ?? '').isNotEmpty) 'short-id': q['sid'],
+        if (publicKey != null && publicKey.isNotEmpty) 'public-key': publicKey,
+        if (shortId != null && shortId.isNotEmpty) 'short-id': shortId,
       };
     }
   }
+  // These are independent VLESS fields, not TLS-only options.
+  // Mihomo's encryption value carries the ML-KEM-768/X25519 PQ handshake
+  // configuration verbatim.
+  _putNonEmpty(p, 'encryption', q['encryption']);
+  _putNonEmpty(
+    p,
+    'packet-encoding',
+    q['packet-encoding'] ?? q['packetEncoding'],
+  );
   _applyTransport(
     p,
     network: q['type'],
@@ -277,6 +292,7 @@ Map<String, dynamic> _parseVless(String link) {
     host: q['host'],
     serviceName: q['serviceName'],
     headerType: q['headerType'],
+    mode: q['mode'],
   );
   return p;
 }
@@ -432,6 +448,31 @@ Map<String, dynamic> _parseTuic(String link) {
   _putNonEmpty(p, 'congestion-controller', q['congestion_control']);
   _putNonEmpty(p, 'udp-relay-mode', q['udp_relay_mode']);
   if (_truthy(q['allow_insecure']) || _truthy(q['insecure'])) {
+    p['skip-cert-verify'] = true;
+  }
+  return p;
+}
+
+
+/// Parses an AnyTLS share URI into Mihomo's outbound schema.
+/// AnyTLS is TLS-based by definition; Mihomo's AnyTLS outbound uses SNI
+/// rather than a separate `tls: true` field.
+Map<String, dynamic>? _parseAnyTls(String link) {
+  final uri = Uri.parse(link);
+  if (uri.host.isEmpty || !uri.hasPort || uri.userInfo.isEmpty) return null;
+  final q = uri.queryParameters;
+  final p = <String, dynamic>{
+    'name': _fragment(uri),
+    'type': 'anytls',
+    'server': uri.host,
+    'port': uri.port,
+    'password': Uri.decodeComponent(uri.userInfo),
+    'udp': true,
+  };
+  _putNonEmpty(p, 'sni', q['sni'] ?? q['peer']);
+  _putNonEmpty(p, 'alpn', _alpn(q['alpn']));
+  _putNonEmpty(p, 'client-fingerprint', q['fp']);
+  if (_truthy(q['insecure']) || _truthy(q['allowInsecure'])) {
     p['skip-cert-verify'] = true;
   }
   return p;
