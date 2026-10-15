@@ -30,10 +30,10 @@ Future<void> main(List<String> args) async {
       backgroundColor: Colors.transparent,
     );
     await windowManager.waitUntilReadyToShow(options, () async {
+      await windowManager.show();
       if (startMinimized) {
         await windowManager.minimize();
       } else {
-        await windowManager.show();
         await windowManager.focus();
       }
     });
