@@ -15,6 +15,15 @@ namespace {
 #ifndef DWMWA_USE_IMMERSIVE_DARK_MODE
 #define DWMWA_USE_IMMERSIVE_DARK_MODE 20
 #endif
+#ifndef DWMWA_BORDER_COLOR
+#define DWMWA_BORDER_COLOR 34
+#endif
+#ifndef DWMWA_CAPTION_COLOR
+#define DWMWA_CAPTION_COLOR 35
+#endif
+#ifndef DWMWA_TEXT_COLOR
+#define DWMWA_TEXT_COLOR 36
+#endif
 
 constexpr const wchar_t kWindowClassName[] = L"FLUTTER_RUNNER_WIN32_WINDOW";
 
@@ -284,5 +293,21 @@ void Win32Window::UpdateTheme(HWND const window) {
     BOOL enable_dark_mode = light_mode == 0;
     DwmSetWindowAttribute(window, DWMWA_USE_IMMERSIVE_DARK_MODE,
                           &enable_dark_mode, sizeof(enable_dark_mode));
+  }
+
+  // Keep the native Windows title bar in sync with the user's Windows accent.
+  DWORD accent_argb = 0;
+  BOOL opaque_blend = FALSE;
+  if (SUCCEEDED(DwmGetColorizationColor(&accent_argb, &opaque_blend))) {
+    const COLORREF accent = RGB(
+        (accent_argb >> 16) & 0xFF,
+        (accent_argb >> 8) & 0xFF,
+        accent_argb & 0xFF);
+    const DWORD caption = accent;
+    const DWORD border = accent;
+    const DWORD text = (light_mode == 0) ? RGB(255, 255, 255) : RGB(24, 24, 24);
+    DwmSetWindowAttribute(window, DWMWA_CAPTION_COLOR, &caption, sizeof(caption));
+    DwmSetWindowAttribute(window, DWMWA_BORDER_COLOR, &border, sizeof(border));
+    DwmSetWindowAttribute(window, DWMWA_TEXT_COLOR, &text, sizeof(text));
   }
 }
