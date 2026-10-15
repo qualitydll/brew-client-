@@ -144,11 +144,11 @@ jobs:
           android/app/src/main/kotlin/dev/brew/brew/MihomoRuntime.kt
         grep -Fq 'Clash.assertReady()' \
           android/app/src/main/kotlin/dev/brew/brew/MihomoRuntime.kt
-        grep -Fq '.put("home-dir", homeDir.absolutePath)' \
+        grep -Fq '.put("homeDir", homeDir.absolutePath)' \
           android/app/src/main/kotlin/dev/brew/brew/MihomoVpnService.kt
         grep -Fq '.put("version", Build.VERSION.SDK_INT)' \
           android/app/src/main/kotlin/dev/brew/brew/MihomoVpnService.kt
-        grep -Fq '.put("selected-map", JSONObject())' \
+        grep -Fq '.put("profile", configFile.absolutePath)' \
           android/app/src/main/kotlin/dev/brew/brew/MihomoVpnService.kt
         grep -Fq 'File(configPath).canonicalFile' \
           android/app/src/main/kotlin/dev/brew/brew/MihomoVpnService.kt
