@@ -621,7 +621,7 @@ class _Hero extends StatelessWidget {
                   duration: const Duration(milliseconds: 250),
                   child: Text(title, key: ValueKey(title),
                     style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                      fontWeight: FontWeight.w750,
+                      fontWeight: FontWeight.w700,
                       color: state.isConnected ? scheme.primary : scheme.onSurface,
                     )),
                 ),
