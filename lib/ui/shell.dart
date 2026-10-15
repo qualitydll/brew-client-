@@ -160,7 +160,7 @@ class _Logo extends StatelessWidget {
         ),
       ),
       child: Image.asset(
-        'assets/images/brew_logo.png',
+        'assets/images/brewicon.jpg',
         fit: BoxFit.contain,
         alignment: Alignment.center,
         filterQuality: FilterQuality.high,
