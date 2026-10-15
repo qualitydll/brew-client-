@@ -109,4 +109,51 @@ rules:
       'MATCH,PROXY',
     ]);
   });
+
+  test('VLESS URI preserves PQ encryption, packet encoding, Reality and Vision', () {
+    const link = 'vless://00000000-0000-4000-8000-000000000001@node.example:443'
+        '?encryption=mlkem768x25519plus.native%2Fxorpub%2Frandom.1rtt'
+        '&security=reality&pbk=public-key-placeholder&sid=abcd1234'
+        '&sni=example.org&fp=chrome&flow=xtls-rprx-vision'
+        '&packet-encoding=xudp&type=tcp#pq-test';
+
+    final parsed = parseSubscription(link);
+    expect(parsed.proxyCount, 1);
+    final proxy = parsed.proxies.single;
+    expect(proxy['type'], 'vless');
+    expect(proxy['flow'], 'xtls-rprx-vision');
+    expect(proxy['encryption'], 'mlkem768x25519plus.native/xorpub/random.1rtt');
+    expect(proxy['packet-encoding'], 'xudp');
+    expect(proxy['client-fingerprint'], 'chrome');
+    expect(proxy['servername'], 'example.org');
+    expect(proxy['reality-opts'], {
+      'public-key': 'public-key-placeholder',
+      'short-id': 'abcd1234',
+    });
+  });
+
+  test('AnyTLS URI preserves SNI, ALPN, fingerprint and verification setting', () {
+    const link = 'anytls://test-password@node.example:443'
+        '?sni=example.org&alpn=h2%2Chttp%2F1.1&fp=chrome&insecure=0#anytls-test';
+
+    final parsed = parseSubscription(link);
+    expect(parsed.proxyCount, 1);
+    final proxy = parsed.proxies.single;
+    expect(proxy['type'], 'anytls');
+    expect(proxy['password'], 'test-password');
+    expect(proxy['sni'], 'example.org');
+    expect(proxy['alpn'], ['h2', 'http/1.1']);
+    expect(proxy['client-fingerprint'], 'chrome');
+    expect(proxy.containsKey('skip-cert-verify'), isFalse);
+  });
+
+  test('VLESS XHTTP preserves the transport mode', () {
+    const link = 'vless://00000000-0000-4000-8000-000000000001@node.example:443'
+        '?security=tls&sni=example.org&type=xhttp&path=%2Fedge&mode=auto#xhttp-test';
+
+    final proxy = parseSubscription(link).proxies.single;
+    expect(proxy['network'], 'xhttp');
+    expect(proxy['xhttp-opts'], {'path': '/edge', 'mode': 'auto'});
+  });
+
 }
