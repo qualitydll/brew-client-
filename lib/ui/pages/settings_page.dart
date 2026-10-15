@@ -69,19 +69,27 @@ class SettingsPage extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 20),
-          Text('Стиль палитры', style: Theme.of(context).textTheme.titleSmall),
+          Text('Роль акцентного цвета', style: Theme.of(context).textTheme.titleSmall),
           const SizedBox(height: 10),
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: [
-              for (final e in variantNames.entries)
-                ChoiceChip(
-                  label: Text(e.value),
-                  selected: s.schemeVariant == e.key,
-                  onSelected: (_) => state.setVariant(e.key),
-                ),
+          SegmentedButton<String>(
+            segments: const [
+              ButtonSegment(value: 'primary', label: Text('Primary')),
+              ButtonSegment(value: 'secondary', label: Text('Secondary')),
+              ButtonSegment(value: 'tertiary', label: Text('Tertiary')),
             ],
+            selected: {s.accentRole},
+            showSelectedIcon: false,
+            onSelectionChanged: (v) {
+              s.accentRole = v.first;
+              state.notifyListeners();
+            },
+          ),
+          const SizedBox(height: 6),
+          Text(
+            'Один выбранный цвет используется как основной акцент интерфейса.',
+            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+              color: Theme.of(context).colorScheme.onSurfaceVariant,
+            ),
           ),
         ],
       ),
