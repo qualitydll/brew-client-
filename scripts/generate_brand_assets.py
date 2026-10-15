@@ -3,7 +3,7 @@ from pathlib import Path
 from PIL import Image, ImageOps
 
 ROOT = Path(__file__).resolve().parents[1]
-SOURCE = ROOT / "brewicon.jpg"
+SOURCE = ROOT / "assets" / "images" / "brewicon.jpg"
 ASSET_DIR = ROOT / "assets" / "images"
 ANDROID_RES = ROOT / "android" / "app" / "src" / "main" / "res"
 WINDOWS_ICON = ROOT / "windows" / "runner" / "resources" / "app_icon.ico"
