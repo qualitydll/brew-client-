@@ -3,7 +3,7 @@ from pathlib import Path
 from PIL import Image, ImageOps
 
 ROOT = Path(__file__).resolve().parents[1]
-SOURCE = ROOT / "assets" / "images" / "brewicon.jpg"
+SOURCE = ROOT / "brewicon.png"
 ASSET_DIR = ROOT / "assets" / "images"
 ANDROID_RES = ROOT / "android" / "app" / "src" / "main" / "res"
 WINDOWS_ICON = ROOT / "windows" / "runner" / "resources" / "app_icon.ico"
@@ -31,6 +31,10 @@ def main() -> None:
         original.load()
         ASSET_DIR.mkdir(parents=True, exist_ok=True)
         original.save(ASSET_DIR / "brew_logo.png", format="PNG", optimize=True)
+
+        android_nodpi = ANDROID_RES / "drawable-nodpi"
+        android_nodpi.mkdir(parents=True, exist_ok=True)
+        original.save(android_nodpi / "brewicon.png", format="PNG", optimize=True)
 
         sizes = {
             "mipmap-mdpi": 48,
