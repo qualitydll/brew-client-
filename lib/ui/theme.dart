@@ -28,7 +28,7 @@ ColorScheme brewScheme(
       onTertiaryContainer: coffee.onPrimaryContainer,
     );
   }
-  final onSeed = ThemeData.estimateBrightnessForColor(seed) == Brightness.dark
+  final onSeed = seed.computeLuminance() < 0.5
       ? Colors.white
       : Colors.black;
   return switch (accentRole) {
