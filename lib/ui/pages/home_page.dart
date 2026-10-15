@@ -444,7 +444,7 @@ class _CardTitle extends StatelessWidget {
 }
 
 class _ServerCard extends StatefulWidget {
-  const _ServerCard({required this.state});
+  const _ServerCard({super.key, required this.state});
   final AppState state;
 
   @override
@@ -564,7 +564,7 @@ class _ServerCardState extends State<_ServerCard> {
 }
 
 class _SpeedCard extends StatelessWidget {
-  const _SpeedCard({required this.state});
+  const _SpeedCard({super.key, required this.state});
   final AppState state;
 
   @override
@@ -611,7 +611,7 @@ class _SpeedCard extends StatelessWidget {
 }
 
 class _ConnectionsCard extends StatelessWidget {
-  const _ConnectionsCard({required this.state});
+  const _ConnectionsCard({super.key, required this.state});
   final AppState state;
 
   @override
@@ -767,7 +767,7 @@ class _Stat extends StatelessWidget {
 }
 
 class _ProfileCard extends StatelessWidget {
-  const _ProfileCard({required this.state});
+  const _ProfileCard({super.key, required this.state});
   final AppState state;
 
   @override
