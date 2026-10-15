@@ -52,6 +52,10 @@ android {
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode
         versionName = flutter.versionName
+        // The bundled Mihomo AAR contains multiple ABIs; ship ARM64 only.
+        ndk {
+            abiFilters += listOf("arm64-v8a")
+        }
     }
 
     packaging {
