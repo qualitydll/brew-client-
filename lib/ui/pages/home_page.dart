@@ -45,11 +45,11 @@ class _Hero extends StatelessWidget {
   (String, String) get _texts => switch (state.status) {
     ConnStatus.disconnected =>
       state.profiles.isEmpty
-          ? ('Добро пожаловать', 'Добавьте подписку, чтобы начать')
-          : ('Не защищено', 'Нажмите, чтобы подключиться'),
-    ConnStatus.connecting => ('Подключение…', 'Запускаем ядро mihomo'),
-    ConnStatus.disconnecting => ('Отключение…', 'Возвращаем прямое соединение'),
-    ConnStatus.connected => ('Защищено', ''),
+          ? ('Выключено', 'Добавьте подписку, чтобы начать')
+          : ('Выключено', ''),
+    ConnStatus.connecting => ('Подключение…', 'Запускаем VPN'),
+    ConnStatus.disconnecting => ('Отключение…', 'Завершаем соединение'),
+    ConnStatus.connected => ('Включено', ''),
   };
 
   @override
