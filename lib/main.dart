@@ -38,7 +38,7 @@ Future<void> main(List<String> args) async {
       }
     });
     await windowManager.setPreventClose(true);
-    windowManager.addListener(_CloseHandler(state));
+    windowManager.addListener(_CloseHandler());
   }
 
   runApp(BrewApp(state: state));
@@ -47,14 +47,12 @@ Future<void> main(List<String> args) async {
   }
 }
 
+/// Closing the custom title bar hides the window into the taskbar instead of
+/// shutting down Mihomo or disconnecting an active VPN session.
 class _CloseHandler with WindowListener {
-  _CloseHandler(this.state);
-  final AppState state;
-
   @override
   Future<void> onWindowClose() async {
-    await state.shutdown();
-    await windowManager.destroy();
+    await windowManager.minimize();
   }
 }
 
