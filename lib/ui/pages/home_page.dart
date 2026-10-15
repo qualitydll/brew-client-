@@ -6,7 +6,6 @@ import '../../state/app_state.dart';
 import '../../state/models.dart';
 import '../shell.dart';
 import '../widgets/common.dart';
-import '../widgets/connect_orb.dart';
 import '../widgets/public_ip_card.dart';
 import '../widgets/traffic_chart.dart';
 
@@ -285,10 +284,29 @@ class _Hero extends StatelessWidget {
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        ConnectOrb(
-          status: state.status,
-          enabled: state.profiles.isNotEmpty,
-          onTap: state.toggle,
+        FilledButton.icon(
+          onPressed: state.profiles.isNotEmpty && !state.isBusy ? state.toggle : null,
+          style: FilledButton.styleFrom(
+            minimumSize: const Size(196, 52),
+            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          ),
+          icon: state.isBusy
+              ? const SizedBox(
+                  width: 18,
+                  height: 18,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                )
+              : Icon(state.isConnected ? Icons.stop_rounded : Icons.play_arrow_rounded),
+          label: Text(
+            switch (state.status) {
+              ConnStatus.connecting => 'Подключение…',
+              ConnStatus.disconnecting => 'Отключение…',
+              ConnStatus.connected => 'Остановить',
+              ConnStatus.disconnected => 'Пуск',
+            },
+            style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
+          ),
         ),
         AnimatedSwitcher(
           duration: const Duration(milliseconds: 400),
