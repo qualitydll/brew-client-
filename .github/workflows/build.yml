@@ -8,6 +8,7 @@ on:
       - qualitydll-sing-box-android-engine
       - fix/protocol-import-android
       - experiment-lab-diagnostics
+      - ui_experiment
   pull_request:
     branches: [ main ]
   workflow_dispatch:
