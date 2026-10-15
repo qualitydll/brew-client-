@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../brand.dart';
 
-/// The "brew." wordmark. The dot lights up while connected.
+/// Brew's uploaded brand artwork and wordmark.
 class BrewMark extends StatelessWidget {
   const BrewMark({super.key, this.size = 20, this.lit = false, this.color});
 
@@ -14,10 +14,27 @@ class BrewMark extends StatelessWidget {
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     final dot = size * 0.26;
+    final iconSize = size * 1.25;
     return Row(
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.end,
       children: [
+        ClipRRect(
+          borderRadius: BorderRadius.circular(size * 0.2),
+          child: Image.asset(
+            'brewicon.jpg',
+            width: iconSize,
+            height: iconSize,
+            fit: BoxFit.cover,
+            filterQuality: FilterQuality.high,
+            errorBuilder: (context, error, stackTrace) => Icon(
+              Icons.coffee_rounded,
+              size: iconSize,
+              color: color ?? scheme.primary,
+            ),
+          ),
+        ),
+        SizedBox(width: size * 0.32),
         Text(
           kAppName,
           style: TextStyle(
