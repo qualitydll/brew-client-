@@ -94,6 +94,7 @@ class AppState extends ChangeNotifier {
   bool isAdmin = false;
 
   Map<String, ProxyNode> nodes = {};
+  Map<String, Map<String, dynamic>> proxyConfigs = {};
   List<ProxyNode> groups = [];
   String? viewGroup;
   final Map<String, int> delays = {};
@@ -490,6 +491,13 @@ class AppState extends ChangeNotifier {
         baseConfigFor(parseSubscription(content)),
         _options,
       );
+      final rawProxies = config['proxies'];
+      proxyConfigs = {
+        if (rawProxies is List)
+          for (final proxy in rawProxies)
+            if (proxy is Map && proxy['name'] is String)
+              proxy['name'] as String: Map<String, dynamic>.from(proxy),
+      };
       final configFile = await prepareMihomoConfigFile(dataDir);
       skipped = await _writeValidConfig(config, configFile);
       for (final s in skipped) {
