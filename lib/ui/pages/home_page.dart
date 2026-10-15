@@ -15,47 +15,26 @@ class HomePage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final state = AppScope.of(context);
-    final wide = MediaQuery.sizeOf(context).width >= 1050;
-    final hero = _Hero(state: state);
-    final cards = [
-      _ServerCard(state: state),
-      _SpeedCard(state: state),
-      if (state.isConnected) _ConnectionsCard(state: state),
-      _ProfileCard(state: state),
-    ];
-    if (wide) {
-      return Row(
-        children: [
-          Expanded(
-            flex: 5,
-            child: Center(child: SingleChildScrollView(child: hero)),
-          ),
-          Expanded(
-            flex: 4,
-            child: ListView(
-              padding: const EdgeInsets.fromLTRB(0, 16, 32, 32),
-              children: [
-                for (var i = 0; i < cards.length; i++)
-                  Padding(
-                    padding: const EdgeInsets.only(bottom: 16),
-                    child: StaggeredEntrance(index: i + 1, child: cards[i]),
-                  ),
-              ],
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final compact = constraints.maxWidth < 600;
+        return SingleChildScrollView(
+          padding: EdgeInsets.fromLTRB(compact ? 20 : 32, 24, compact ? 20 : 32, 32),
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 680),
+            child: Center(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  _Hero(state: state),
+                  const SizedBox(height: 28),
+                  _ServerCard(state: state),
+                ],
+              ),
             ),
           ),
-        ],
-      );
-    }
-    return ListView(
-      padding: const EdgeInsets.fromLTRB(24, 0, 24, 32),
-      children: [
-        hero,
-        for (var i = 0; i < cards.length; i++)
-          Padding(
-            padding: const EdgeInsets.only(top: 16),
-            child: StaggeredEntrance(index: i + 1, child: cards[i]),
-          ),
-      ],
+        );
+      },
     );
   }
 }
@@ -119,28 +98,6 @@ class _Hero extends StatelessWidget {
                 ),
         ),
         const SizedBox(height: 28),
-        SegmentedButton<String>(
-          segments: const [
-            ButtonSegment(
-              value: 'rule',
-              label: Text('Умный'),
-              icon: Icon(Icons.alt_route_rounded),
-            ),
-            ButtonSegment(
-              value: 'global',
-              label: Text('Весь трафик'),
-              icon: Icon(Icons.language_rounded),
-            ),
-            ButtonSegment(
-              value: 'direct',
-              label: Text('Напрямую'),
-              icon: Icon(Icons.trending_flat_rounded),
-            ),
-          ],
-          selected: {state.settings.mode},
-          onSelectionChanged: (s) => state.setMode(s.first),
-          showSelectedIcon: false,
-        ),
         AnimatedSize(
           duration: const Duration(milliseconds: 300),
           curve: Curves.easeOutCubic,
@@ -339,10 +296,8 @@ class _ServerCardState extends State<_ServerCard> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  server ??
-                      (state.isConnected
-                          ? 'Не выбран'
-                          : 'Подключитесь, чтобы выбрать'),
+                  server ?? state.settings.preferredServer ??
+                      (state.profiles.isEmpty ? 'Добавьте подписку' : 'Сервер не выбран'),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: t.titleLarge?.copyWith(fontWeight: FontWeight.w600),
@@ -360,34 +315,19 @@ class _ServerCardState extends State<_ServerCard> {
           const SizedBox(height: 16),
           Row(
             children: [
-              FilledButton.tonalIcon(
-                onPressed: state.isConnected && !_finding ? _best : null,
-                icon: _finding
-                    ? const SizedBox(
-                        width: 18,
-                        height: 18,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      )
-                    : const Icon(Icons.auto_awesome_rounded),
-                label: const Text('Самый быстрый'),
-              ),
-              const SizedBox(width: 8),
-              TextButton(
-                onPressed: state.isConnected
-                    ? () => Shell.go(context, 1)
-                    : state.isBusy ||
-                          state.profiles.isEmpty ||
-                          _checking ||
-                          state.probingProfile
-                    ? null
-                    : _checkReachability,
-                child: Text(
-                  state.isConnected
-                      ? 'Все серверы'
-                      : _checking || state.probingProfile
-                      ? 'Проверяем…'
-                      : 'Проверить порты',
+              if (state.isConnected)
+                FilledButton.tonalIcon(
+                  onPressed: _finding ? null : _best,
+                  icon: _finding
+                      ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2))
+                      : const Icon(Icons.auto_awesome_rounded),
+                  label: const Text('Быстрый сервер'),
                 ),
+              if (state.isConnected) const SizedBox(width: 8),
+              FilledButton.icon(
+                onPressed: () => Shell.go(context, state.profiles.isEmpty ? 2 : 1),
+                icon: Icon(state.profiles.isEmpty ? Icons.add_rounded : Icons.dns_rounded),
+                label: Text(state.profiles.isEmpty ? 'Добавить подписку' : 'Выбрать сервер'),
               ),
             ],
           ),
