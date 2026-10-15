@@ -129,6 +129,7 @@ jobs:
         fi
 
         grep -Fq 'useLegacyPackaging = true' android/app/build.gradle.kts
+        grep -Fq 'abiFilters += listOf("arm64-v8a")' android/app/build.gradle.kts
         grep -Fq 'implementation(files(mihomoAndroidAar).builtBy(downloadMihomoAndroid))' android/app/build.gradle.kts
         if grep -Fq 'libbox.aar' android/app/build.gradle.kts; then
           echo "::error::sing-box libbox must not be included in this Mihomo-only build."
