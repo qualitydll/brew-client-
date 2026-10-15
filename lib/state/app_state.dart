@@ -59,7 +59,7 @@ class TrafficStore extends ChangeNotifier {
 }
 
 class LogStore extends ChangeNotifier {
-  static const cap = 1000;
+  static const cap = 500;
   final entries = Queue<LogEntry>();
 
   void add(LogEntry e) {
@@ -695,7 +695,7 @@ class AppState extends ChangeNotifier {
     _connectionsTimer?.cancel();
     unawaited(refreshConnections());
     _connectionsTimer = Timer.periodic(
-      const Duration(seconds: 3),
+      const Duration(seconds: 5),
       (_) => unawaited(refreshConnections()),
     );
   }
