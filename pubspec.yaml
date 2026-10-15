@@ -61,7 +61,7 @@ dev_dependencies:
 flutter:
 
   assets:
-    - brewicon.jpg
+    - assets/images/brewicon.jpg
     - assets/images/brew_logo.png
 
   # The following line ensures that the Material Icons font is
