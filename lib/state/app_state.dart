@@ -874,6 +874,16 @@ class AppState extends ChangeNotifier {
     notifyListeners();
   }
 
+  Future<void> setPreferredServer(String group, String name) async {
+    settings.preferredServer = name;
+    settings.preferredServerGroup = group;
+    if (!isConnected) {
+      await refreshOfflineProxies();
+    } else {
+      notifyListeners();
+    }
+  }
+
   Future<void> select(String group, String name) async {
     final api = _api;
     settings.preferredServer = name;
