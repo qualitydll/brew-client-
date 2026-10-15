@@ -2,7 +2,6 @@ import 'dart:io';
 
 import 'package:animations/animations.dart';
 import 'package:flutter/material.dart';
-import 'package:window_manager/window_manager.dart';
 
 import '../state/app_state.dart';
 import '../state/models.dart';
@@ -100,8 +99,6 @@ class _ShellState extends State<Shell> {
           ),
           Column(
             children: [
-              if (Platform.isWindows || Platform.isLinux || Platform.isMacOS)
-                const _TitleBar(),
               Expanded(
                 child: Row(
                   children: [
@@ -165,89 +162,6 @@ class _Logo extends StatelessWidget {
         fit: BoxFit.contain,
         alignment: Alignment.center,
         filterQuality: FilterQuality.high,
-      ),
-    );
-  }
-}
-
-class _TitleBar extends StatelessWidget {
-  const _TitleBar();
-
-  @override
-  Widget build(BuildContext context) {
-    return SizedBox(
-      height: 40,
-      child: Row(
-        children: [
-          Expanded(
-            child: DragToMoveArea(
-              child: Container(
-                alignment: Alignment.centerLeft,
-                padding: const EdgeInsets.only(left: 20),
-                child: const SizedBox.shrink(),
-              ),
-            ),
-          ),
-          _WinButton(icon: Icons.remove_rounded, onTap: windowManager.minimize),
-          _WinButton(
-            icon: Icons.crop_square_rounded,
-            onTap: () async => await windowManager.isMaximized()
-                ? windowManager.unmaximize()
-                : windowManager.maximize(),
-          ),
-          _WinButton(
-            icon: Icons.close_rounded,
-            onTap: windowManager.close,
-            danger: true,
-          ),
-          const SizedBox(width: 6),
-        ],
-      ),
-    );
-  }
-}
-
-class _WinButton extends StatefulWidget {
-  const _WinButton({
-    required this.icon,
-    required this.onTap,
-    this.danger = false,
-  });
-  final IconData icon;
-  final VoidCallback onTap;
-  final bool danger;
-
-  @override
-  State<_WinButton> createState() => _WinButtonState();
-}
-
-class _WinButtonState extends State<_WinButton> {
-  bool _hover = false;
-
-  @override
-  Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    final bg = _hover
-        ? (widget.danger ? scheme.error : scheme.surfaceContainerHighest)
-        : Colors.transparent;
-    final fg = _hover && widget.danger
-        ? scheme.onError
-        : scheme.onSurfaceVariant;
-    return MouseRegion(
-      onEnter: (_) => setState(() => _hover = true),
-      onExit: (_) => setState(() => _hover = false),
-      child: GestureDetector(
-        onTap: widget.onTap,
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 160),
-          margin: const EdgeInsets.symmetric(horizontal: 2, vertical: 6),
-          width: 40,
-          decoration: BoxDecoration(
-            color: bg,
-            borderRadius: BorderRadius.circular(_hover ? 10 : 20),
-          ),
-          child: Icon(widget.icon, size: 18, color: fg),
-        ),
       ),
     );
   }
