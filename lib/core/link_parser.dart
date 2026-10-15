@@ -124,6 +124,8 @@ Map<String, dynamic>? parseLink(String link) {
       return _parseHysteria2(link);
     case 'tuic':
       return _parseTuic(link);
+    case 'anytls':
+      return _parseAnyTls(link);
   }
   return null;
 }
@@ -250,6 +252,10 @@ Map<String, dynamic> _parseVless(String link) {
     'udp': true,
   };
   _putNonEmpty(p, 'flow', q['flow']);
+  // Mihomo supports VLESS encryption parameters (including post-quantum
+  // ML-KEM/X25519 modes) in share links as well as native YAML profiles.
+  _putNonEmpty(p, 'encryption', q['encryption']);
+  _putNonEmpty(p, 'packet-encoding', q['packetEncoding'] ?? q['packet-encoding']);
   final security = q['security'];
   if (security == 'tls' || security == 'reality') {
     p['tls'] = true;
@@ -432,6 +438,29 @@ Map<String, dynamic> _parseTuic(String link) {
   _putNonEmpty(p, 'congestion-controller', q['congestion_control']);
   _putNonEmpty(p, 'udp-relay-mode', q['udp_relay_mode']);
   if (_truthy(q['allow_insecure']) || _truthy(q['insecure'])) {
+    p['skip-cert-verify'] = true;
+  }
+  return p;
+}
+
+
+/// Parses AnyTLS share links used by Mihomo-compatible panels, including mikan:
+/// anytls://password@host:port?sni=example.com&insecure=1#Node
+Map<String, dynamic> _parseAnyTls(String link) {
+  final uri = Uri.parse(link);
+  final q = uri.queryParameters;
+  final p = <String, dynamic>{
+    'name': _fragment(uri),
+    'type': 'anytls',
+    'server': uri.host,
+    'port': uri.hasPort ? uri.port : 443,
+    'password': Uri.decodeComponent(uri.userInfo),
+    'udp': true,
+  };
+  _putNonEmpty(p, 'sni', q['sni'] ?? q['peer']);
+  _putNonEmpty(p, 'alpn', _alpn(q['alpn']));
+  _putNonEmpty(p, 'client-fingerprint', q['fp']);
+  if (_truthy(q['insecure']) || _truthy(q['allowInsecure'])) {
     p['skip-cert-verify'] = true;
   }
   return p;
