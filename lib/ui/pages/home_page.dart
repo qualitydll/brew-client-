@@ -19,8 +19,9 @@ class HomePage extends StatefulWidget {
 class _HomePageState extends State<HomePage> {
   // A single home dashboard: widgets stay together rather than being split
   // into separate feature pages. The order can be changed by dragging.
-  final List<String> _widgetOrder = ['server', 'speed', 'ip', 'profile'];
+  final List<String> _widgetOrder = ['start', 'routing', 'server', 'speed', 'ip', 'profile'];
   final Map<String, String> _widgetSizes = {};
+  final Map<String, String> _widgetPairs = {};
   String? _note;
   bool _layoutLoaded = false;
 
@@ -33,6 +34,7 @@ class _HomePageState extends State<HomePage> {
       ..clear()
       ..addAll(settings.homeWidgetOrder);
     _widgetSizes.addAll(settings.homeWidgetSizes);
+    _widgetPairs.addAll(settings.homeWidgetPairs);
     _note = settings.homeWidgetNote;
     if (_note != null && !_widgetOrder.contains('note')) {
       _widgetOrder.add('note');
@@ -44,14 +46,28 @@ class _HomePageState extends State<HomePage> {
     final settings = AppScope.of(context).settings;
     settings.homeWidgetOrder = List<String>.from(_widgetOrder);
     settings.homeWidgetSizes = Map<String, String>.from(_widgetSizes);
+    settings.homeWidgetPairs = Map<String, String>.from(_widgetPairs);
     settings.homeWidgetNote = _note;
   }
 
   void _manageWidget(String id, String action) {
     setState(() {
-      if (action == 'remove') {
+      if (action.startsWith('pair:')) {
+        final target = action.substring(5);
+        _widgetPairs.removeWhere((key, value) =>
+            key == id || value == id || key == target || value == target);
+        _widgetPairs[id] = target;
+      } else if (action == 'unpair') {
+        _widgetPairs.removeWhere((key, value) => key == id || value == id);
+      } else if (action == 'remove') {
         _widgetOrder.remove(id);
+        _widgetPairs.removeWhere((key, value) => key == id || value == id);
+        _widgetSizes.remove(id);
         if (id == 'note') _note = null;
+      } else if (action.startsWith('button-size:')) {
+        AppScope.of(context).settings.homeButtonScale = action.substring(12);
+      } else if (action.startsWith('button-align:')) {
+        AppScope.of(context).settings.homeButtonAlignment = action.substring(13);
       } else {
         _widgetSizes[id] = action;
       }
@@ -160,7 +176,8 @@ class _HomePageState extends State<HomePage> {
     final state = AppScope.of(context);
     final width = MediaQuery.sizeOf(context).width;
     final horizontal = width < 520 ? 16.0 : 28.0;
-    final ids = _widgetOrder.where((id) => id != 'connections' || state.isConnected).toList();
+    final visibleOrder = _widgetOrder.where((id) => id != 'connections' || state.isConnected).toList();
+    final ids = visibleOrder.where((id) => !_widgetPairs.values.contains(id)).toList();
     return ListView(
       padding: EdgeInsets.fromLTRB(horizontal, 12, horizontal, 32),
       children: [
@@ -249,7 +266,12 @@ class _HomePageState extends State<HomePage> {
               ids.insert(newIndex, item);
               _widgetOrder
                 ..clear()
-                ..addAll(ids);
+                ..addAll([
+                  for (final root in ids) ...[
+                    root,
+                    if (_widgetPairs[root] != null) _widgetPairs[root]!,
+                  ],
+                ]);
               _persistLayout();
             });
           },
