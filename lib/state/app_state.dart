@@ -874,6 +874,8 @@ class AppState extends ChangeNotifier {
     notifyListeners();
   }
 
+  void notifySettingsChanged() => notifyListeners();
+
   Future<void> setPreferredServer(String group, String name) async {
     settings.preferredServer = name;
     settings.preferredServerGroup = group;
