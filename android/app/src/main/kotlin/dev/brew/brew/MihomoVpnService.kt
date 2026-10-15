@@ -150,7 +150,7 @@ class MihomoVpnService : VpnService() {
         val homeDir = configFile.parentFile
             ?: error("Mihomo config has no parent directory.")
         val initParams = JSONObject()
-            // libmihomo-android InitParams expects the JSON key `home-dir`.
+            // libmihomo-android InitParams expects the JSON key `home-dir`. This must match the native InitParams JSON tag exactly.
             .put("home-dir", homeDir.absolutePath)
             .put("version", Build.VERSION.SDK_INT)
             .toString()
