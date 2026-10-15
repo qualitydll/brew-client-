@@ -305,7 +305,13 @@ void Win32Window::UpdateTheme(HWND const window) {
         accent_argb & 0xFF);
     const DWORD caption = accent;
     const DWORD border = accent;
-    const DWORD text = (light_mode == 0) ? RGB(255, 255, 255) : RGB(24, 24, 24);
+    const double luminance =
+        0.2126 * ((accent_argb >> 16) & 0xFF) +
+        0.7152 * ((accent_argb >> 8) & 0xFF) +
+        0.0722 * (accent_argb & 0xFF);
+    const DWORD text = luminance < 145.0
+        ? RGB(255, 255, 255)
+        : RGB(24, 24, 24);
     DwmSetWindowAttribute(window, DWMWA_CAPTION_COLOR, &caption, sizeof(caption));
     DwmSetWindowAttribute(window, DWMWA_BORDER_COLOR, &border, sizeof(border));
     DwmSetWindowAttribute(window, DWMWA_TEXT_COLOR, &text, sizeof(text));
