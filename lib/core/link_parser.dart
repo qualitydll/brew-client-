@@ -126,6 +126,8 @@ Map<String, dynamic>? parseLink(String link) {
       return _parseTuic(link);
     case 'anytls':
       return _parseAnyTls(link);
+    case 'shadowquic':
+      return _parseShadowQuic(link);
   }
   return null;
 }
@@ -453,6 +455,36 @@ Map<String, dynamic> _parseTuic(String link) {
   return p;
 }
 
+
+
+/// Parses a ShadowQUIC share URI into Mihomo's outbound schema.
+/// Full Mihomo YAML subscriptions already preserve ShadowQUIC nodes as-is.
+Map<String, dynamic>? _parseShadowQuic(String link) {
+  final uri = Uri.parse(link);
+  if (uri.host.isEmpty || !uri.hasPort || uri.userInfo.isEmpty) return null;
+  final q = uri.queryParameters;
+  final credentials = Uri.decodeComponent(uri.userInfo);
+  final colon = credentials.indexOf(':');
+  if (colon < 1 || colon == credentials.length - 1) return null;
+  final p = <String, dynamic>{
+    'name': _fragment(uri),
+    'type': 'shadowquic',
+    'server': uri.host,
+    'port': uri.port,
+    'username': credentials.substring(0, colon),
+    'password': credentials.substring(colon + 1),
+  };
+  _putNonEmpty(p, 'sni', q['sni']);
+  _putNonEmpty(p, 'alpn', _alpn(q['alpn']) ?? ['h3']);
+  _putNonEmpty(p, 'quic-versions', _alpn(q['quic-versions'] ?? q['quic_versions']));
+  _putNonEmpty(p, 'keep-alive-interval', int.tryParse(q['keep-alive-interval'] ?? ''));
+  _putNonEmpty(p, 'congestion-controller', q['congestion-controller']);
+  _putNonEmpty(p, 'up', q['up']);
+  _putNonEmpty(p, 'down', q['down']);
+  if (_truthy(q['udp-over-stream'])) p['udp-over-stream'] = true;
+  if (_truthy(q['zero-rtt'])) p['zero-rtt'] = true;
+  return p;
+}
 
 /// Parses an AnyTLS share URI into Mihomo's outbound schema.
 /// AnyTLS is TLS-based by definition; Mihomo's AnyTLS outbound uses SNI
