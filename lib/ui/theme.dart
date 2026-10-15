@@ -3,24 +3,39 @@ import 'package:flutter/material.dart';
 import '../brand.dart';
 
 /// Material You scheme; the default brew orange gets a coffee-brown tertiary.
-ColorScheme brewScheme(Color seed, Brightness b, DynamicSchemeVariant v) {
+ColorScheme brewScheme(
+  Color seed,
+  Brightness b,
+  DynamicSchemeVariant v, {
+  String accentRole = 'primary',
+}) {
   final s = ColorScheme.fromSeed(
     seedColor: seed,
     brightness: b,
     dynamicSchemeVariant: v,
   );
-  if (seed.toARGB32() != kBrewOrange.toARGB32()) return s;
-  final c = ColorScheme.fromSeed(
-    seedColor: kBrewCoffee,
-    brightness: b,
-    dynamicSchemeVariant: DynamicSchemeVariant.fidelity,
-  );
-  return s.copyWith(
-    tertiary: c.primary,
-    onTertiary: c.onPrimary,
-    tertiaryContainer: c.primaryContainer,
-    onTertiaryContainer: c.onPrimaryContainer,
-  );
+  var result = s;
+  if (seed.toARGB32() == kBrewOrange.toARGB32()) {
+    final coffee = ColorScheme.fromSeed(
+      seedColor: kBrewCoffee,
+      brightness: b,
+      dynamicSchemeVariant: DynamicSchemeVariant.fidelity,
+    );
+    result = result.copyWith(
+      tertiary: coffee.primary,
+      onTertiary: coffee.onPrimary,
+      tertiaryContainer: coffee.primaryContainer,
+      onTertiaryContainer: coffee.onPrimaryContainer,
+    );
+  }
+  final onSeed = ThemeData.estimateBrightnessForColor(seed) == Brightness.dark
+      ? Colors.white
+      : Colors.black;
+  return switch (accentRole) {
+    'secondary' => result.copyWith(secondary: seed, onSecondary: onSeed),
+    'tertiary' => result.copyWith(tertiary: seed, onTertiary: onSeed),
+    _ => result.copyWith(primary: seed, onPrimary: onSeed),
+  };
 }
 
 ThemeData buildTheme(ColorScheme scheme) {
