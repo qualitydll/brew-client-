@@ -117,8 +117,12 @@ class MihomoApi {
     const testUrls = [
       kTestUrl,
       'https://www.gstatic.com/generate_204',
+      'https://connectivitycheck.gstatic.com/generate_204',
+      'https://www.google.com/generate_204',
     ];
-    final perAttempt = timeoutMs < 2500 ? timeoutMs : 2500;
+    // Some networks block individual connectivity-check hosts even when the
+    // proxy itself is healthy. Try independent endpoints with bounded timeouts.
+    final perAttempt = timeoutMs < 2000 ? timeoutMs : 2000;
     for (final url in testUrls) {
       try {
         if (_useNativeBridge) {
