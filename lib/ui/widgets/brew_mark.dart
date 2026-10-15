@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../brand.dart';
 
-/// The "brew." wordmark. The dot lights up while connected.
+/// Compact Brew wordmark with the original artwork kept uncropped.
 class BrewMark extends StatelessWidget {
   const BrewMark({super.key, this.size = 20, this.lit = false, this.color});
 
@@ -13,11 +13,28 @@ class BrewMark extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
-    final dot = size * 0.26;
+    final dot = size * 0.24;
+    final iconSize = size * 1.35;
     return Row(
       mainAxisSize: MainAxisSize.min,
-      crossAxisAlignment: CrossAxisAlignment.end,
+      crossAxisAlignment: CrossAxisAlignment.center,
       children: [
+        SizedBox(
+          width: iconSize,
+          height: iconSize,
+          child: Image.asset(
+            'assets/images/brewicon.jpg',
+            fit: BoxFit.contain,
+            alignment: Alignment.center,
+            filterQuality: FilterQuality.high,
+            errorBuilder: (context, error, stackTrace) => Icon(
+              Icons.coffee_rounded,
+              size: iconSize,
+              color: color ?? scheme.primary,
+            ),
+          ),
+        ),
+        SizedBox(width: size * 0.3),
         Text(
           kAppName,
           style: TextStyle(
@@ -32,7 +49,7 @@ class BrewMark extends StatelessWidget {
         ),
         SizedBox(width: size * 0.06),
         Padding(
-          padding: EdgeInsets.only(bottom: size * 0.1),
+          padding: EdgeInsets.only(top: size * 0.08),
           child: AnimatedContainer(
             duration: const Duration(milliseconds: 600),
             curve: Curves.easeOutBack,

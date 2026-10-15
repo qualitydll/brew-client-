@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../state/app_state.dart';
 import '../../state/models.dart';
 import '../widgets/common.dart';
+import '../widgets/protocol_badges.dart';
 
 class ServersPage extends StatelessWidget {
   const ServersPage({super.key});
@@ -202,6 +203,7 @@ class _Grid extends StatelessWidget {
           child: _ServerTile(
             name: name,
             type: node?.type ?? '',
+            config: state.proxyConfigs[name] ?? const <String, dynamic>{},
             isGroup: node?.isGroup ?? false,
             selected: group.now == name,
             favorite: state.isFavoriteServer(name),
@@ -224,6 +226,7 @@ class _ServerTile extends StatefulWidget {
   const _ServerTile({
     required this.name,
     required this.type,
+    required this.config,
     required this.isGroup,
     required this.selected,
     required this.favorite,
@@ -237,6 +240,7 @@ class _ServerTile extends StatefulWidget {
 
   final String name;
   final String type;
+  final Map<String, dynamic> config;
   final bool isGroup;
   final bool selected;
   final bool favorite;
@@ -343,11 +347,10 @@ class _ServerTileState extends State<_ServerTile> {
                       ),
                     ),
                     const SizedBox(height: 2),
-                    Text(
-                      proxyTypeLabel(widget.type),
-                      style: t.bodySmall?.copyWith(
-                        color: fg.withValues(alpha: 0.7),
-                      ),
+                    ProtocolBadges(
+                      type: widget.type,
+                      config: widget.config,
+                      foreground: fg,
                     ),
                   ],
                 ),

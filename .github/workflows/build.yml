@@ -7,6 +7,7 @@ on:
       - qualitydll-android-mihomo-vpnservice
       - qualitydll-sing-box-android-engine
       - fix/protocol-import-android
+      - experiment-lab-diagnostics
   pull_request:
     branches: [ main ]
   workflow_dispatch:
@@ -17,6 +18,17 @@ jobs:
 
     steps:
     - uses: actions/checkout@v4
+
+    - name: Setup Python for brand assets
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.x'
+
+    - name: Generate Brew brand assets
+      shell: pwsh
+      run: |
+        python -m pip install Pillow
+        python scripts/generate_brand_assets.py
 
     - name: Setup Flutter
       uses: subosito/flutter-action@v2
@@ -62,6 +74,17 @@ jobs:
 
     steps:
     - uses: actions/checkout@v4
+
+    - name: Setup Python for brand assets
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.x'
+
+    - name: Generate Brew brand assets
+      shell: bash
+      run: |
+        python -m pip install Pillow
+        python scripts/generate_brand_assets.py
 
     - name: Setup Java
       uses: actions/setup-java@v4
@@ -142,7 +165,7 @@ jobs:
           android/app/src/main/kotlin/dev/brew/brew/MihomoRuntime.kt
         grep -Fq 'Clash.assertReady()' \
           android/app/src/main/kotlin/dev/brew/brew/MihomoRuntime.kt
-        grep -Fq '.put("homeDir", homeDir.absolutePath)' \
+        grep -Fq '.put("home-dir", homeDir.absolutePath)' \
           android/app/src/main/kotlin/dev/brew/brew/MihomoVpnService.kt
         grep -Fq '.put("profile", configFile.absolutePath)' \
           android/app/src/main/kotlin/dev/brew/brew/MihomoVpnService.kt

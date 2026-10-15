@@ -4,7 +4,7 @@ import 'link_parser.dart';
 
 const kMainGroup = 'PROXY';
 const kAutoGroup = 'AUTO';
-const kTestUrl = 'https://www.gstatic.com/generate_204';
+const kTestUrl = 'https://cp.cloudflare.com/generate_204';
 
 class CoreOptions {
   const CoreOptions({
@@ -125,27 +125,35 @@ Map<String, dynamic> applyCoreOptions(
   }
 
   if (o.tun || o.externalTun) {
-    final dns = cfg['dns'];
-    if (dns is! Map || dns['enable'] != true) {
-      cfg['dns'] = {
-        'enable': true,
-        'ipv6': true,
-        'enhanced-mode': 'fake-ip',
-        'fake-ip-range': '198.18.0.1/16',
-        'fake-ip-filter': [
-          '*.lan',
-          '*.local',
-          'localhost.ptlogin2.qq.com',
-          '+.msftconnecttest.com',
-          '+.msftncsi.com',
-        ],
-        'default-nameserver': ['1.1.1.1', '8.8.8.8'],
-        'nameserver': [
-          'https://1.1.1.1/dns-query',
-          'https://dns.google/dns-query',
-        ],
-      };
-    }
+    // Supply DNS defaults only for missing keys. Provider DNS settings (even
+    // when the provider explicitly disabled DNS) are otherwise retained.
+    final existingDns = cfg['dns'];
+    final dns = existingDns is Map
+        ? existingDns.cast<String, dynamic>()
+        : <String, dynamic>{};
+    final mergedDns = <String, dynamic>{
+      'enable': true,
+      'ipv6': true,
+      'enhanced-mode': 'fake-ip',
+      'fake-ip-range': '198.18.0.1/16',
+      'fake-ip-filter': [
+        '*.lan',
+        '*.local',
+        'localhost.ptlogin2.qq.com',
+        '+.msftconnecttest.com',
+        '+.msftncsi.com',
+      ],
+      'default-nameserver': ['1.1.1.1', '8.8.8.8'],
+      'nameserver': [
+        'https://1.1.1.1/dns-query',
+        'https://dns.google/dns-query',
+      ],
+      ...dns,
+    };
+    // DNS must be active for the Android external TUN path to resolve
+    // queries; preserve all other provider-supplied DNS options.
+    mergedDns['enable'] = true;
+    cfg['dns'] = mergedDns;
   }
   return cfg;
 }

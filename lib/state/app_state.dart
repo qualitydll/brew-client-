@@ -94,6 +94,7 @@ class AppState extends ChangeNotifier {
   bool isAdmin = false;
 
   Map<String, ProxyNode> nodes = {};
+  Map<String, Map<String, dynamic>> proxyConfigs = {};
   List<ProxyNode> groups = [];
   String? viewGroup;
   final Map<String, int> delays = {};
@@ -490,6 +491,13 @@ class AppState extends ChangeNotifier {
         baseConfigFor(parseSubscription(content)),
         _options,
       );
+      final rawProxies = config['proxies'];
+      proxyConfigs = {
+        if (rawProxies is List)
+          for (final proxy in rawProxies)
+            if (proxy is Map && proxy['name'] is String)
+              proxy['name'] as String: Map<String, dynamic>.from(proxy),
+      };
       final configFile = await prepareMihomoConfigFile(dataDir);
       skipped = await _writeValidConfig(config, configFile);
       for (final s in skipped) {
@@ -563,46 +571,27 @@ class AppState extends ChangeNotifier {
 
   /// Writes [config], dropping servers the core refuses to load so that one
   /// broken node in a subscription doesn't block all the others.
+  /// Validates the generated profile without silently mutating provider data.
+  ///
+  /// A rejected proxy is surfaced as a configuration error. Removing it can
+  /// break proxy groups, providers, or routing rules and can hide unsupported
+  /// protocol fields from the user.
   Future<List<String>> _writeValidConfig(
     Map<String, dynamic> config,
     File file,
   ) async {
-    final dropped = <String>[];
-    while (true) {
-      await file.writeAsString(
-        const JsonEncoder.withIndent('  ').convert(config),
-      );
-      final err = Platform.isAndroid
-          ? await androidVpn.validateConfig(file.path)
-          : await MihomoCore.check(
-              binary: corePath!,
-              homeDir: file.parent.path,
-              configPath: file.path,
-            );
-      if (err == null) return dropped;
-      final m = RegExp(r'^proxy (\d+):').firstMatch(err);
-      final proxies = [...(config['proxies'] as List? ?? const [])];
-      final idx = m == null ? -1 : int.parse(m.group(1)!);
-      if (idx < 0 || idx >= proxies.length || proxies.length <= 1) {
-        throw CoreConfigException(err);
-      }
-      final name = (proxies.removeAt(idx) as Map)['name'] as String;
-      dropped.add('$name (${err.substring(m!.end).trim()})');
-      config['proxies'] = proxies;
-      config['proxy-groups'] = [
-        for (final g in (config['proxy-groups'] as List? ?? const []))
-          if (g is Map && g['proxies'] is List)
-            {
-              ...g.cast<String, dynamic>(),
-              'proxies': () {
-                final list = [...(g['proxies'] as List)]..remove(name);
-                return list.isEmpty && g['use'] == null ? ['DIRECT'] : list;
-              }(),
-            }
-          else
-            g,
-      ];
-    }
+    await file.writeAsString(
+      const JsonEncoder.withIndent('  ').convert(config),
+    );
+    final err = Platform.isAndroid
+        ? await androidVpn.validateConfig(file.path)
+        : await MihomoCore.check(
+            binary: corePath!,
+            homeDir: file.parent.path,
+            configPath: file.path,
+          );
+    if (err != null) throw CoreConfigException(err);
+    return const [];
   }
 
   Future<void> disconnect() async {

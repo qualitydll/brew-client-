@@ -25,6 +25,11 @@ class MainActivity : FlutterActivity() {
                 when (call.method) {
                     "prepareVpn" -> prepareVpn(result)
                     "validateConfig" -> validateConfig(call.argument("path"), result)
+                    "mihomoAction" -> invokeMihomoAction(
+                        call.argument("method"),
+                        call.argument("data"),
+                        result,
+                    )
                     "startVpn" -> startVpn(
                         call.argument("configPath"),
                         call.argument("sessionId"),
@@ -52,6 +57,53 @@ class MainActivity : FlutterActivity() {
         }
         permissionResult = result
         startActivityForResult(intent, VPN_PERMISSION_REQUEST)
+    }
+
+
+    private fun invokeMihomoAction(
+        method: String?,
+        data: String?,
+        result: MethodChannel.Result,
+    ) {
+        if (method.isNullOrBlank()) {
+            result.error("invalid_mihomo_action", "A Mihomo action method is required.", null)
+            return
+        }
+        try {
+            loadMihomo()
+            val action = JSONObject()
+                .put("id", UUID.randomUUID().toString())
+                .put("method", method)
+                .put("data", data)
+            Clash.invokeAction(action.toString()) { response ->
+                try {
+                    val json = JSONObject(response ?: error("Mihomo returned an empty action result."))
+                    val code = json.optInt("code", -1)
+                    val value = json.opt("data")
+                    runOnUiThread {
+                        if (code < 0) {
+                            result.error(
+                                "mihomo_action_failed",
+                                value?.toString() ?: "Mihomo action '$method' failed.",
+                                null,
+                            )
+                        } else {
+                            result.success(value)
+                        }
+                    }
+                } catch (error: Throwable) {
+                    runOnUiThread {
+                        result.error(
+                            "mihomo_action_failed",
+                            error.message ?: "Could not parse Mihomo action result.",
+                            null,
+                        )
+                    }
+                }
+            }
+        } catch (error: Throwable) {
+            result.error("mihomo_action_failed", error.message, null)
+        }
     }
 
     private fun validateConfig(path: String?, result: MethodChannel.Result) {
