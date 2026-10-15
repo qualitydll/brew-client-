@@ -1,5 +1,7 @@
 <div align="center">
 
+<img src="https://raw.githubusercontent.com/qualitydll/brew-client-/main/brewbanner.png" alt="brew. — project banner" width="100%" />
+
 # brew.
 
 **A minimalist VPN client for Windows and Android, with Brew’s own visual identity**
