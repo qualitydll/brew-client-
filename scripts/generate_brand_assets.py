@@ -7,17 +7,20 @@ SOURCE = ROOT / "assets" / "images" / "brewicon.jpg"
 ASSET_DIR = ROOT / "assets" / "images"
 ANDROID_RES = ROOT / "android" / "app" / "src" / "main" / "res"
 WINDOWS_ICON = ROOT / "windows" / "runner" / "resources" / "app_icon.ico"
+BRAND_BACKGROUND = (30, 20, 16)
 
 
 def square_icon(image: Image.Image, size: int) -> Image.Image:
-    image = image.convert("RGB")
-    image = ImageOps.fit(
-        image,
-        (size, size),
+    """Fit the complete original artwork on a square Brew-colored canvas."""
+    source = image.convert("RGBA")
+    fitted = ImageOps.contain(
+        source,
+        (size - max(2, size // 12), size - max(2, size // 12)),
         method=Image.Resampling.LANCZOS,
-        centering=(0.5, 0.5),
     )
-    return image
+    canvas = Image.new("RGBA", (size, size), (*BRAND_BACKGROUND, 255))
+    canvas.alpha_composite(fitted, ((size - fitted.width) // 2, (size - fitted.height) // 2))
+    return canvas.convert("RGB")
 
 
 def main() -> None:
@@ -26,11 +29,9 @@ def main() -> None:
 
     with Image.open(SOURCE) as original:
         original.load()
-        # Keep the full composition for in-app branding and the README.
         ASSET_DIR.mkdir(parents=True, exist_ok=True)
-        original.convert("RGB").save(ASSET_DIR / "brew_logo.png", format="PNG", optimize=True)
+        original.save(ASSET_DIR / "brew_logo.png", format="PNG", optimize=True)
 
-        # Android launcher icons use the same artwork cropped to a square.
         sizes = {
             "mipmap-mdpi": 48,
             "mipmap-hdpi": 72,
@@ -41,9 +42,12 @@ def main() -> None:
         for folder, size in sizes.items():
             target_dir = ANDROID_RES / folder
             target_dir.mkdir(parents=True, exist_ok=True)
-            square_icon(original, size).save(target_dir / "ic_launcher.png", format="PNG", optimize=True)
+            square_icon(original, size).save(
+                target_dir / "ic_launcher.png",
+                format="PNG",
+                optimize=True,
+            )
 
-        # Windows reads the ICO referenced by Runner.rc.
         WINDOWS_ICON.parent.mkdir(parents=True, exist_ok=True)
         square_icon(original, 256).save(
             WINDOWS_ICON,
@@ -51,7 +55,7 @@ def main() -> None:
             sizes=[(16, 16), (24, 24), (32, 32), (48, 48), (64, 64), (128, 128), (256, 256)],
         )
 
-    print("Generated Brew in-app logo, Android launcher icons, and Windows ICO from brewicon.jpg.")
+    print("Generated uncropped Brew artwork and platform icons from brewicon.jpg.")
 
 
 if __name__ == "__main__":
