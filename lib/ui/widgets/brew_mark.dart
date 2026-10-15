@@ -22,7 +22,7 @@ class BrewMark extends StatelessWidget {
         ClipRRect(
           borderRadius: BorderRadius.circular(size * 0.2),
           child: Image.asset(
-            'brewicon.jpg',
+            'assets/images/brewicon.jpg',
             width: iconSize,
             height: iconSize,
             fit: BoxFit.cover,
