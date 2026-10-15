@@ -111,10 +111,12 @@ class _ShellState extends State<Shell> {
                         selectedIndex: _index,
                         onDestinationSelected: _select,
                         groupAlignment: -0.85,
-                        leading: Padding(
-                          padding: const EdgeInsets.only(bottom: 24, top: 4),
-                          child: _Logo(status: state.status),
-                        ),
+                        leading: Platform.isWindows
+                            ? const SizedBox.shrink()
+                            : Padding(
+                                padding: const EdgeInsets.only(bottom: 24, top: 4),
+                                child: _Logo(status: state.status),
+                              ),
                         destinations: [
                           for (final d in _dests)
                             NavigationRailDestination(
