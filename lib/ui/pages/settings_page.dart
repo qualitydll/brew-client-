@@ -258,13 +258,13 @@ class SettingsPage extends StatelessWidget {
           ListTile(
             contentPadding: EdgeInsets.zero,
             leading: const Icon(Icons.science_outlined),
-            title: const Text('Experiment Lab'),
-            subtitle: const Text('Диагностика задержки, маршрута и соединений'),
+            title: const Text('Brew Network Lab'),
+            subtitle: const Text('Адаптивная диагностика доступности, задержки и маршрута'),
             trailing: const Icon(Icons.chevron_right_rounded),
             onTap: () => Navigator.of(context).push(
               MaterialPageRoute<void>(
                 builder: (_) => Scaffold(
-                  appBar: AppBar(title: const Text('Experiment Lab')),
+                  appBar: AppBar(title: const Text('Brew Network Lab')),
                   body: const SafeArea(
                     child: ExperimentLabPage(showHeader: false),
                   ),
