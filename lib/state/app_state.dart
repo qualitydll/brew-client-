@@ -342,6 +342,7 @@ class AppState extends ChangeNotifier {
       profiles.add(profile);
       settings.activeProfileId ??= profile.id;
       await _saveProfiles();
+      await refreshOfflineProxies();
       error = null;
     } finally {
       busyProfile = false;
@@ -363,6 +364,7 @@ class AppState extends ChangeNotifier {
         ..proxyCount = parsed.proxyCount
         ..applyUserInfo(res.headers['subscription-userinfo']);
       await _saveProfiles();
+      if (pr.id == activeProfile?.id) await refreshOfflineProxies();
       if (isConnected && pr.id == activeProfile?.id) await reconnect();
     } finally {
       busyProfile = false;
@@ -389,6 +391,7 @@ class AppState extends ChangeNotifier {
       }
     }
     await _saveProfiles();
+    await refreshOfflineProxies();
     notifyListeners();
   }
 
@@ -396,6 +399,7 @@ class AppState extends ChangeNotifier {
     if (pr.id == activeProfile?.id) return;
     settings.activeProfileId = pr.id;
     delays.clear();
+    await refreshOfflineProxies();
     notifyListeners();
     if (isConnected) await reconnect();
   }
@@ -531,6 +535,12 @@ class AppState extends ChangeNotifier {
       }
       _subscribeStreams(api);
       await refreshProxies();
+      final preferred = settings.preferredServer;
+      final preferredGroup = settings.preferredServerGroup;
+      final selectable = (preferredGroup == null ? null : nodes[preferredGroup]) ?? mainGroup;
+      if (preferred != null && selectable != null && selectable.all.contains(preferred)) {
+        await select(selectable.name, preferred);
+      }
       // Let the connect animation breathe a little even on fast machines.
       final elapsed = DateTime.now().difference(started);
       if (elapsed < const Duration(milliseconds: 900)) {
@@ -718,6 +728,74 @@ class AppState extends ChangeNotifier {
 
   // ----------------------------------------------------------------- proxies
 
+  /// Builds a lightweight server list from the saved subscription while
+  /// disconnected, so users can choose a server before starting the VPN.
+  Future<void> refreshOfflineProxies() async {
+    if (isConnected || isBusy) return;
+    final profile = activeProfile;
+    if (profile == null) {
+      nodes = {};
+      groups = [];
+      viewGroup = null;
+      notifyListeners();
+      return;
+    }
+    try {
+      final content = await _profileFile(profile.id).readAsString();
+      final config = baseConfigFor(parseSubscription(content));
+      final next = <String, ProxyNode>{};
+      final rawProxies = config['proxies'];
+      if (rawProxies is List) {
+        for (final raw in rawProxies) {
+          if (raw is! Map || raw['name'] is! String) continue;
+          final name = raw['name'] as String;
+          next[name] = ProxyNode(name: name, type: raw['type']?.toString() ?? '');
+        }
+      }
+      final rawGroups = config['proxy-groups'];
+      if (rawGroups is List) {
+        for (final raw in rawGroups) {
+          if (raw is! Map || raw['name'] is! String) continue;
+          final name = raw['name'] as String;
+          final all = (raw['proxies'] as List? ?? const [])
+              .map((value) => value.toString())
+              .toList();
+          final type = switch ((raw['type'] ?? 'select').toString().toLowerCase()) {
+            'select' => 'Selector',
+            'url-test' => 'URLTest',
+            'fallback' => 'Fallback',
+            'load-balance' => 'LoadBalance',
+            'relay' => 'Relay',
+            final other => other,
+          };
+          final preferred = settings.preferredServer;
+          final preferredGroup = settings.preferredServerGroup;
+          next[name] = ProxyNode(
+            name: name,
+            type: type,
+            now: preferred != null && all.contains(preferred) &&
+                    (preferredGroup == null || preferredGroup == name)
+                ? preferred
+                : null,
+            all: all,
+          );
+        }
+      }
+      nodes = next;
+      groups = [
+        for (final node in next.values)
+          if (node.isGroup) node,
+      ];
+      if (viewGroup == null || !groups.any((g) => g.name == viewGroup)) {
+        final selectableGroups = groups.where((g) => g.isSelectable).toList();
+        viewGroup = mainGroup?.name ?? (selectableGroups.isNotEmpty ? selectableGroups.first.name : (groups.isNotEmpty ? groups.first.name : null));
+      }
+    } catch (e) {
+      logs.add(LogEntry('warning', 'Не удалось загрузить список серверов: $e'));
+    }
+    notifyListeners();
+  }
+
   Future<void> refreshProxies() async {
     final api = _api;
     if (api == null) return;
@@ -787,19 +865,49 @@ class AppState extends ChangeNotifier {
     return chain;
   }
 
-  String? get currentServer =>
-      currentChain.length > 1 ? currentChain.last : null;
+  String? get currentServer => isConnected
+      ? (currentChain.length > 1 ? currentChain.last : null)
+      : settings.preferredServer;
 
   void setViewGroup(String name) {
     viewGroup = name;
     notifyListeners();
   }
 
+  void notifySettingsChanged() => notifyListeners();
+
+  Future<void> setPreferredServer(String group, String name) async {
+    settings.preferredServer = name;
+    settings.preferredServerGroup = group;
+    if (!isConnected) {
+      await refreshOfflineProxies();
+    } else {
+      notifyListeners();
+    }
+  }
+
   Future<void> select(String group, String name) async {
     final api = _api;
-    if (api == null) return;
-    await api.select(group, name);
+    settings.preferredServer = name;
+    settings.preferredServerGroup = group;
     recordRecentServer(name);
+    if (api == null) {
+      nodes = {
+        for (final entry in nodes.entries)
+          entry.key: entry.key == group && entry.value.isGroup && entry.value.all.contains(name)
+              ? ProxyNode(
+                  name: entry.value.name,
+                  type: entry.value.type,
+                  now: name,
+                  all: entry.value.all,
+                  history: entry.value.history,
+                )
+              : entry.value,
+      };
+      notifyListeners();
+      return;
+    }
+    await api.select(group, name);
     await api.closeConnections();
     await refreshProxies();
   }

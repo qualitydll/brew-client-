@@ -53,6 +53,25 @@ class Settings {
   List<String> get domainRules => _prefs.getStringList('domainRules') ?? [];
   set domainRules(List<String> v) => _prefs.setStringList('domainRules', v);
 
+  bool get autostart => _prefs.getBool('autostart') ?? false;
+  set autostart(bool v) => _prefs.setBool('autostart', v);
+
+  bool get autoConnect => _prefs.getBool('autoConnect') ?? false;
+  set autoConnect(bool v) => _prefs.setBool('autoConnect', v);
+
+  bool get startMinimized => _prefs.getBool('startMinimized') ?? true;
+  set startMinimized(bool v) => _prefs.setBool('startMinimized', v);
+
+  String? get preferredServer => _prefs.getString('preferredServer');
+  set preferredServer(String? v) => v == null || v.isEmpty
+      ? _prefs.remove('preferredServer')
+      : _prefs.setString('preferredServer', v);
+
+  String? get preferredServerGroup => _prefs.getString('preferredServerGroup');
+  set preferredServerGroup(String? v) => v == null || v.isEmpty
+      ? _prefs.remove('preferredServerGroup')
+      : _prefs.setString('preferredServerGroup', v);
+
   List<String> get favoriteServers =>
       _prefs.getStringList('favoriteServers') ?? [];
   set favoriteServers(List<String> v) =>

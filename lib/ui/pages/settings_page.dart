@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../../core/system_proxy.dart';
+import '../../core/windows_startup.dart';
 import '../../core/routing_rules.dart';
 import '../../state/app_state.dart';
 import 'experiment_lab_page.dart';
@@ -17,6 +18,14 @@ class SettingsPage extends StatelessWidget {
   Widget build(BuildContext context) {
     final state = AppScope.of(context);
     final s = state.settings;
+    final startupServers = <(String, String)>[
+      for (final group in state.groups.where((g) => g.isSelectable))
+        for (final name in group.all)
+          if (!(state.nodes[name]?.isGroup ?? false) &&
+              name != 'DIRECT' &&
+              name != 'REJECT')
+            (group.name, name),
+    ];
     final sections = <Widget>[
       _Section(
         icon: Icons.palette_rounded,
@@ -209,6 +218,104 @@ class SettingsPage extends StatelessWidget {
           ),
         ],
       ),
+      if (Platform.isWindows)
+        _Section(
+          icon: Icons.power_settings_new_rounded,
+          title: 'Запуск Windows',
+          children: [
+            SwitchListTile(
+              contentPadding: EdgeInsets.zero,
+              title: const Text('Автозапуск вместе с Windows'),
+              subtitle: const Text('Запускать Brew при входе в систему'),
+              value: s.autostart,
+              onChanged: (enabled) async {
+                try {
+                  await WindowsStartup.setEnabled(
+                    enabled,
+                    minimized: s.startMinimized,
+                  );
+                  s.autostart = enabled;
+                  state.notifySettingsChanged();
+                  if (context.mounted) {
+                    showSnack(context, enabled ? 'Автозапуск включён' : 'Автозапуск выключен');
+                  }
+                } catch (e) {
+                  if (context.mounted) showSnack(context, 'Не удалось изменить автозапуск: $e');
+                }
+              },
+            ),
+            SwitchListTile(
+              contentPadding: EdgeInsets.zero,
+              title: const Text('Запускать свёрнутым'),
+              subtitle: const Text('При автозапуске окно не будет открываться развёрнутым'),
+              value: s.startMinimized,
+              onChanged: (enabled) async {
+                s.startMinimized = enabled;
+                try {
+                  if (s.autostart) {
+                    await WindowsStartup.setEnabled(true, minimized: enabled);
+                  }
+                  state.notifySettingsChanged();
+                } catch (e) {
+                  if (context.mounted) showSnack(context, 'Не удалось обновить запуск: $e');
+                }
+              },
+            ),
+            ListTile(
+              contentPadding: EdgeInsets.zero,
+              title: const Text('Сервер для автоподключения'),
+              subtitle: Text(
+                s.preferredServer == null
+                    ? 'Не выбран'
+                    : '${s.preferredServer} · ${s.preferredServerGroup ?? ''}',
+              ),
+              trailing: const Icon(Icons.chevron_right_rounded),
+              onTap: startupServers.isEmpty
+                  ? null
+                  : () async {
+                      final selected = await showDialog<(String, String)>(
+                        context: context,
+                        builder: (dialogContext) => SimpleDialog(
+                          title: const Text('Выберите сервер'),
+                          children: [
+                            for (final entry in startupServers)
+                              SimpleDialogOption(
+                                onPressed: () => Navigator.pop(dialogContext, entry),
+                                child: Row(
+                                  children: [
+                                    Expanded(child: Text(entry.$2)),
+                                    if (entry.$2 == s.preferredServer &&
+                                        entry.$1 == s.preferredServerGroup)
+                                      Icon(Icons.check_rounded, color: Theme.of(dialogContext).colorScheme.primary),
+                                  ],
+                                ),
+                              ),
+                          ],
+                        ),
+                      );
+                      if (selected != null) {
+                        await state.setPreferredServer(selected.$1, selected.$2);
+                      }
+                    },
+            ),
+            SwitchListTile(
+              contentPadding: EdgeInsets.zero,
+              title: const Text('Автоподключение к выбранному серверу'),
+              subtitle: Text(
+                s.preferredServer == null
+                    ? 'Сначала выберите сервер на странице «Узлы»'
+                    : 'При запуске подключаться к «${s.preferredServer}»',
+              ),
+              value: s.autoConnect,
+              onChanged: s.preferredServer == null
+                  ? null
+                  : (enabled) {
+                      s.autoConnect = enabled;
+                      state.notifySettingsChanged();
+                    },
+            ),
+          ],
+        ),
       _Section(
         icon: Icons.memory_rounded,
         title: 'Ядро',

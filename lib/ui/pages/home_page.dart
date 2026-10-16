@@ -7,7 +7,6 @@ import '../../state/models.dart';
 import '../shell.dart';
 import '../widgets/common.dart';
 import '../widgets/connect_orb.dart';
-import '../widgets/traffic_chart.dart';
 
 class HomePage extends StatelessWidget {
   const HomePage({super.key});
@@ -15,63 +14,72 @@ class HomePage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final state = AppScope.of(context);
-    final wide = MediaQuery.sizeOf(context).width >= 1050;
-    final hero = _Hero(state: state);
-    final cards = [
-      _ServerCard(state: state),
-      _SpeedCard(state: state),
-      if (state.isConnected) _ConnectionsCard(state: state),
-      _ProfileCard(state: state),
-    ];
-    if (wide) {
-      return Row(
-        children: [
-          Expanded(
-            flex: 5,
-            child: Center(child: SingleChildScrollView(child: hero)),
-          ),
-          Expanded(
-            flex: 4,
-            child: ListView(
-              padding: const EdgeInsets.fromLTRB(0, 16, 32, 32),
-              children: [
-                for (var i = 0; i < cards.length; i++)
-                  Padding(
-                    padding: const EdgeInsets.only(bottom: 16),
-                    child: StaggeredEntrance(index: i + 1, child: cards[i]),
-                  ),
-              ],
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final compact = constraints.maxWidth < 600;
+        if (compact) {
+          // Fit the essential controls on one phone screen. The orb scales
+          // with the available height rather than forcing vertical scrolling.
+          final orbSize = ((constraints.maxHeight - 370) / 1.7)
+              .clamp(76.0, 140.0);
+          return Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            child: Center(
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 520),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    _Hero(state: state, compact: true, orbSize: orbSize),
+                    const SizedBox(height: 12),
+                    _ServerCard(state: state, compact: true),
+                  ],
+                ),
+              ),
+            ),
+          );
+        }
+
+        return SingleChildScrollView(
+          padding: const EdgeInsets.fromLTRB(32, 24, 32, 32),
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 680),
+            child: Center(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  _Hero(state: state),
+                  const SizedBox(height: 28),
+                  _ServerCard(state: state),
+                ],
+              ),
             ),
           ),
-        ],
-      );
-    }
-    return ListView(
-      padding: const EdgeInsets.fromLTRB(24, 0, 24, 32),
-      children: [
-        hero,
-        for (var i = 0; i < cards.length; i++)
-          Padding(
-            padding: const EdgeInsets.only(top: 16),
-            child: StaggeredEntrance(index: i + 1, child: cards[i]),
-          ),
-      ],
+        );
+      },
     );
   }
 }
 
 class _Hero extends StatelessWidget {
-  const _Hero({required this.state});
+  const _Hero({
+    required this.state,
+    this.compact = false,
+    this.orbSize = 248,
+  });
   final AppState state;
+  final bool compact;
+  final double orbSize;
 
   (String, String) get _texts => switch (state.status) {
     ConnStatus.disconnected =>
       state.profiles.isEmpty
-          ? ('Добро пожаловать', 'Добавьте подписку, чтобы начать')
-          : ('Не защищено', 'Нажмите, чтобы подключиться'),
-    ConnStatus.connecting => ('Подключение…', 'Запускаем ядро mihomo'),
-    ConnStatus.disconnecting => ('Отключение…', 'Возвращаем прямое соединение'),
-    ConnStatus.connected => ('Защищено', ''),
+          ? ('Выключено', 'Добавьте подписку, чтобы начать')
+          : ('Выключено', ''),
+    ConnStatus.connecting => ('Подключение…', 'Запускаем VPN'),
+    ConnStatus.disconnecting => ('Отключение…', 'Завершаем соединение'),
+    ConnStatus.connected => ('Включено', ''),
   };
 
   @override
@@ -83,6 +91,7 @@ class _Hero extends StatelessWidget {
       mainAxisSize: MainAxisSize.min,
       children: [
         ConnectOrb(
+          size: orbSize,
           status: state.status,
           enabled: state.profiles.isNotEmpty,
           onTap: state.toggle,
@@ -102,7 +111,7 @@ class _Hero extends StatelessWidget {
           child: Text(
             title,
             key: ValueKey(title),
-            style: t.headlineLarge?.copyWith(
+            style: (compact ? t.headlineMedium : t.headlineLarge)?.copyWith(
               fontWeight: FontWeight.w700,
               color: state.isConnected ? scheme.primary : scheme.onSurface,
             ),
@@ -118,29 +127,7 @@ class _Hero extends StatelessWidget {
                   style: t.bodyLarge?.copyWith(color: scheme.onSurfaceVariant),
                 ),
         ),
-        const SizedBox(height: 28),
-        SegmentedButton<String>(
-          segments: const [
-            ButtonSegment(
-              value: 'rule',
-              label: Text('Умный'),
-              icon: Icon(Icons.alt_route_rounded),
-            ),
-            ButtonSegment(
-              value: 'global',
-              label: Text('Весь трафик'),
-              icon: Icon(Icons.language_rounded),
-            ),
-            ButtonSegment(
-              value: 'direct',
-              label: Text('Напрямую'),
-              icon: Icon(Icons.trending_flat_rounded),
-            ),
-          ],
-          selected: {state.settings.mode},
-          onSelectionChanged: (s) => state.setMode(s.first),
-          showSelectedIcon: false,
-        ),
+        SizedBox(height: compact ? 12 : 28),
         AnimatedSize(
           duration: const Duration(milliseconds: 300),
           curve: Curves.easeOutCubic,
@@ -151,7 +138,7 @@ class _Hero extends StatelessWidget {
                   child: _ErrorBanner(state: state),
                 ),
         ),
-        if (state.profiles.isEmpty)
+        if (state.profiles.isEmpty && !compact)
           Padding(
             padding: const EdgeInsets.only(top: 20),
             child: FilledButton.icon(
@@ -278,8 +265,9 @@ class _CardTitle extends StatelessWidget {
 }
 
 class _ServerCard extends StatefulWidget {
-  const _ServerCard({required this.state});
+  const _ServerCard({required this.state, this.compact = false});
   final AppState state;
+  final bool compact;
 
   @override
   State<_ServerCard> createState() => _ServerCardState();
@@ -287,8 +275,6 @@ class _ServerCard extends StatefulWidget {
 
 class _ServerCardState extends State<_ServerCard> {
   bool _finding = false;
-  bool _checking = false;
-
   Future<void> _best() async {
     setState(() => _finding = true);
     final best = await widget.state.selectBest();
@@ -302,21 +288,16 @@ class _ServerCardState extends State<_ServerCard> {
     );
   }
 
-  Future<void> _checkReachability() async {
-    setState(() => _checking = true);
-    final message = await widget.state.checkProfileReachability();
-    if (!mounted) return;
-    setState(() => _checking = false);
-    showSnack(context, message);
-  }
-
   @override
   Widget build(BuildContext context) {
     final state = widget.state;
+    final compact = widget.compact;
     final t = Theme.of(context).textTheme;
     final scheme = Theme.of(context).colorScheme;
-    final server = state.currentServer;
-    final chain = state.currentChain;
+    // Keep the preferred node saved for the next connection, but don't show
+    // it as an active server while the VPN is disconnected.
+    final server = state.isConnected ? state.currentServer : null;
+    final chain = state.isConnected ? state.currentChain : const <String>[];
     return GlassCard(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -341,8 +322,10 @@ class _ServerCardState extends State<_ServerCard> {
                 Text(
                   server ??
                       (state.isConnected
-                          ? 'Не выбран'
-                          : 'Подключитесь, чтобы выбрать'),
+                          ? 'Сервер не выбран'
+                          : state.profiles.isEmpty
+                              ? 'Добавьте подписку'
+                              : 'Отключено'),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: t.titleLarge?.copyWith(fontWeight: FontWeight.w600),
@@ -358,354 +341,56 @@ class _ServerCardState extends State<_ServerCard> {
             ),
           ),
           const SizedBox(height: 16),
-          Row(
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
             children: [
-              FilledButton.tonalIcon(
-                onPressed: state.isConnected && !_finding ? _best : null,
-                icon: _finding
-                    ? const SizedBox(
-                        width: 18,
-                        height: 18,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      )
-                    : const Icon(Icons.auto_awesome_rounded),
-                label: const Text('Самый быстрый'),
-              ),
-              const SizedBox(width: 8),
-              TextButton(
-                onPressed: state.isConnected
-                    ? () => Shell.go(context, 1)
-                    : state.isBusy ||
-                          state.profiles.isEmpty ||
-                          _checking ||
-                          state.probingProfile
-                    ? null
-                    : _checkReachability,
-                child: Text(
-                  state.isConnected
-                      ? 'Все серверы'
-                      : _checking || state.probingProfile
-                      ? 'Проверяем…'
-                      : 'Проверить порты',
-                ),
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _SpeedCard extends StatelessWidget {
-  const _SpeedCard({required this.state});
-  final AppState state;
-
-  @override
-  Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    return GlassCard(
-      child: ListenableBuilder(
-        listenable: state.traffic,
-        builder: (context, _) {
-          final tr = state.traffic;
-          return Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const _CardTitle(Icons.speed_rounded, 'Скорость'),
-              const SizedBox(height: 12),
-              Row(
-                children: [
-                  Expanded(
-                    child: _Stat(
-                      icon: Icons.south_rounded,
-                      color: scheme.primary,
-                      value: tr.currentDown.toDouble(),
-                      total: tr.totalDown,
+              if (state.isConnected)
+                FilledButton.tonalIcon(
+                  style: FilledButton.styleFrom(
+                    visualDensity: VisualDensity.compact,
+                    padding: EdgeInsets.symmetric(
+                      horizontal: compact ? 12 : 16,
+                      vertical: compact ? 8 : 10,
                     ),
+                    minimumSize: const Size(0, 40),
+                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                   ),
-                  Expanded(
-                    child: _Stat(
-                      icon: Icons.north_rounded,
-                      color: scheme.tertiary,
-                      value: tr.currentUp.toDouble(),
-                      total: tr.totalUp,
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 12),
-              SizedBox(height: 110, child: TrafficChart(store: tr)),
-            ],
-          );
-        },
-      ),
-    );
-  }
-}
-
-class _ConnectionsCard extends StatelessWidget {
-  const _ConnectionsCard({required this.state});
-  final AppState state;
-
-  @override
-  Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    final textTheme = Theme.of(context).textTheme;
-    final connections = state.activeConnections.take(5).toList();
-    return GlassCard(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          _CardTitle(
-            Icons.alt_route_rounded,
-            'Активные соединения · ${state.activeConnections.length}',
-            trailing: IconButton(
-              tooltip: 'Обновить соединения',
-              onPressed: state.refreshConnections,
-              icon: const Icon(Icons.refresh_rounded),
-            ),
-          ),
-          if (connections.isEmpty)
-            Padding(
-              padding: const EdgeInsets.only(top: 8),
-              child: Text(
-                state.connectionsError == null
-                    ? 'Пока нет активных соединений'
-                    : 'Ошибка Mihomo API: ${state.connectionsError}',
-                maxLines: 3,
-                overflow: TextOverflow.ellipsis,
-                style: textTheme.bodySmall?.copyWith(
-                  color: scheme.onSurfaceVariant,
-                ),
-              ),
-            )
-          else
-            for (final connection in connections)
-              Padding(
-                padding: const EdgeInsets.only(top: 10),
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Icon(
-                      connection.network == 'udp'
-                          ? Icons.swap_vert_rounded
-                          : Icons.compare_arrows_rounded,
-                      size: 18,
-                      color: scheme.primary,
-                    ),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            connection.port.isEmpty
-                                ? connection.host
-                                : '${connection.host}:${connection.port}',
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: textTheme.bodyMedium?.copyWith(
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                          Text(
-                            [
-                              if (connection.rule.isNotEmpty)
-                                '${connection.rule}${connection.rulePayload.isEmpty ? '' : ' · ${connection.rulePayload}'}',
-                              if (connection.chains.isNotEmpty)
-                                connection.chains.join(' → ')
-                              else
-                                'Маршрут не указан',
-                            ].join('  ·  '),
-                            maxLines: 2,
-                            overflow: TextOverflow.ellipsis,
-                            style: textTheme.bodySmall?.copyWith(
-                              color: scheme.onSurfaceVariant,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-          if (connections.isNotEmpty && state.activeConnections.length > 5)
-            Padding(
-              padding: const EdgeInsets.only(top: 8),
-              child: Text(
-                'Показаны первые 5 из ${state.activeConnections.length}',
-                style: textTheme.bodySmall?.copyWith(
-                  color: scheme.onSurfaceVariant,
-                ),
-              ),
-            ),
-        ],
-      ),
-    );
-  }
-}
-
-class _Stat extends StatelessWidget {
-  const _Stat({
-    required this.icon,
-    required this.color,
-    required this.value,
-    required this.total,
-  });
-  final IconData icon;
-  final Color color;
-  final double value;
-  final int total;
-
-  @override
-  Widget build(BuildContext context) {
-    final t = Theme.of(context).textTheme;
-    return Row(
-      children: [
-        Container(
-          padding: const EdgeInsets.all(6),
-          decoration: BoxDecoration(
-            color: color.withValues(alpha: 0.15),
-            shape: BoxShape.circle,
-          ),
-          child: Icon(icon, size: 18, color: color),
-        ),
-        const SizedBox(width: 10),
-        Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            TweenAnimationBuilder<double>(
-              tween: Tween(end: value),
-              duration: const Duration(milliseconds: 800),
-              curve: Curves.easeOutCubic,
-              builder: (context, v, _) => Text(
-                formatSpeed(v),
-                style: t.titleMedium?.copyWith(
-                  fontWeight: FontWeight.w600,
-                  fontFeatures: const [FontFeature.tabularFigures()],
-                ),
-              ),
-            ),
-            Text(
-              'всего ${formatBytes(total)}',
-              style: t.bodySmall?.copyWith(
-                color: Theme.of(context).colorScheme.onSurfaceVariant,
-              ),
-            ),
-          ],
-        ),
-      ],
-    );
-  }
-}
-
-class _ProfileCard extends StatelessWidget {
-  const _ProfileCard({required this.state});
-  final AppState state;
-
-  @override
-  Widget build(BuildContext context) {
-    final t = Theme.of(context).textTheme;
-    final scheme = Theme.of(context).colorScheme;
-    final pr = state.activeProfile;
-    return GlassCard(
-      onTap: () => Shell.go(context, 2),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const _CardTitle(Icons.layers_rounded, 'Подписка'),
-          const SizedBox(height: 12),
-          if (pr == null)
-            Text('Нет подписок', style: t.titleMedium)
-          else ...[
-            Text(
-              pr.name,
-              style: t.titleMedium?.copyWith(fontWeight: FontWeight.w600),
-            ),
-            const SizedBox(height: 4),
-            Text(
-              [
-                '${pr.proxyCount} серверов',
-                'обновлено ${timeAgo(pr.updatedAt)}',
-                if (pr.expire != null)
-                  'до ${pr.expire!.day}.${pr.expire!.month}.${pr.expire!.year}',
-                if (!pr.hasExpiryInfo) 'срок не передан',
-                if (!pr.hasTrafficInfo) 'лимит не передан',
-              ].join(' · '),
-              style: t.bodySmall?.copyWith(color: scheme.onSurfaceVariant),
-            ),
-            if (_subscriptionWarning(pr) != null)
-              Padding(
-                padding: const EdgeInsets.only(top: 8),
-                child: Text(
-                  _subscriptionWarning(pr)!,
-                  style: t.bodySmall?.copyWith(color: scheme.error),
-                ),
-              ),
-            if (pr.usage != null) ...[
-              const SizedBox(height: 12),
-              TweenAnimationBuilder<double>(
-                tween: Tween(begin: 0, end: pr.usage!),
-                duration: const Duration(milliseconds: 1200),
-                curve: Curves.easeOutCubic,
-                builder: (context, v, _) => LinearProgressIndicator(
-                  value: v,
-                  minHeight: 8,
-                  borderRadius: BorderRadius.circular(8),
-                ),
-              ),
-              const SizedBox(height: 6),
-              Text(
-                '${formatBytes(pr.used)} из ${formatBytes(pr.total)}',
-                style: t.bodySmall,
-              ),
-            ],
-            if (pr.isRemote)
-              Align(
-                alignment: Alignment.centerRight,
-                child: TextButton.icon(
-                  onPressed: state.busyProfile
-                      ? null
-                      : () async {
-                          try {
-                            await state.updateProfile(pr);
-                            if (context.mounted) {
-                              showSnack(context, 'Подписка обновлена');
-                            }
-                          } catch (e) {
-                            if (context.mounted) {
-                              showSnack(context, 'Не удалось обновить: $e');
-                            }
-                          }
-                        },
-                  icon: state.busyProfile
+                  onPressed: _finding ? null : _best,
+                  icon: _finding
                       ? const SizedBox(
                           width: 16,
                           height: 16,
                           child: CircularProgressIndicator(strokeWidth: 2),
                         )
-                      : const Icon(Icons.refresh_rounded),
-                  label: const Text('Обновить'),
+                      : const Icon(Icons.auto_awesome_rounded, size: 18),
+                  label: const Text('Самый быстрый'),
+                ),
+              FilledButton.icon(
+                style: FilledButton.styleFrom(
+                  visualDensity: VisualDensity.compact,
+                  padding: EdgeInsets.symmetric(
+                    horizontal: compact ? 12 : 16,
+                    vertical: compact ? 8 : 10,
+                  ),
+                  minimumSize: const Size(0, 40),
+                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                ),
+                onPressed: () => Shell.go(context, state.profiles.isEmpty ? 2 : 1),
+                icon: Icon(
+                  state.profiles.isEmpty ? Icons.add_rounded : Icons.dns_rounded,
+                  size: 18,
+                ),
+                label: Text(
+                  state.profiles.isEmpty ? 'Добавить подписку' : 'Выбрать сервер',
+                  maxLines: 1,
+                  softWrap: false,
                 ),
               ),
-          ],
+            ],
+          ),
         ],
       ),
     );
-  }
-
-  String? _subscriptionWarning(Profile profile) {
-    final expire = profile.expire;
-    if (expire != null && expire.isBefore(DateTime.now())) {
-      return 'Срок подписки истёк';
-    }
-    if (expire != null && expire.difference(DateTime.now()).inDays < 7) {
-      return 'Срок подписки скоро истечёт';
-    }
-    if (profile.total > 0 && profile.usage != null && profile.usage! >= 0.9) {
-      return 'Использовано не менее 90% доступного трафика';
-    }
-    return null;
   }
 }
