@@ -60,7 +60,9 @@ Map<String, dynamic>? _tryParseClashConfig(String text) {
 }
 
 ParsedSubscription parseSubscription(String content) {
-  final text = content.trim();
+  // Some subscription endpoints prepend a UTF-8 BOM. It is harmless for
+  // browsers but can prevent YAML/base64 parsing in the app.
+  final text = content.replaceFirst('\uFEFF', '').trim();
   if (text.isEmpty) return ParsedSubscription();
 
   // Try YAML/JSON first because full Mihomo profiles often contain URLs and
@@ -68,14 +70,27 @@ ParsedSubscription parseSubscription(String content) {
   final config = _tryParseClashConfig(text);
   if (config != null) return ParsedSubscription(clashConfig: config);
 
-  if (!text.contains('://')) {
-    final decoded = tryDecodeBase64(text);
-    if (decoded != null && decoded.contains('://')) {
-      return ParsedSubscription(proxies: parseLinks(decoded));
-    }
-    return ParsedSubscription();
+  final directLinks = parseLinks(text);
+  if (directLinks.isNotEmpty) {
+    return ParsedSubscription(proxies: directLinks);
   }
-  return ParsedSubscription(proxies: parseLinks(text));
+
+  // Subscription services commonly return base64-encoded share links. Try
+  // decoding after direct parsing too, so harmless wrappers/extra text don't
+  // cause an otherwise valid subscription to be rejected.
+  final decoded = tryDecodeBase64(text);
+  if (decoded != null && decoded.trim().isNotEmpty) {
+    final decodedText = decoded.replaceFirst('\uFEFF', '').trim();
+    final decodedConfig = _tryParseClashConfig(decodedText);
+    if (decodedConfig != null) {
+      return ParsedSubscription(clashConfig: decodedConfig);
+    }
+    final decodedLinks = parseLinks(decodedText);
+    if (decodedLinks.isNotEmpty) {
+      return ParsedSubscription(proxies: decodedLinks);
+    }
+  }
+  return ParsedSubscription();
 }
 
 List<Map<String, dynamic>> parseLinks(String text) {
