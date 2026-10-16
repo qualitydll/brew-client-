@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/widgets.dart';
+import 'package:window_manager/window_manager.dart';
 
 /// Debug switch for isolating animation cost: BREW_NO_ANIM=aurora,orb,chart|all
 class Motion {
@@ -17,9 +18,18 @@ class Motion {
 /// Shared low-rate clock for idle "ambient" motion (background drift, idle orb).
 /// Runs at [fps] while focused, slows down when the window loses focus and
 /// stops entirely when minimized or when nobody listens.
-class Ambient extends ChangeNotifier with WidgetsBindingObserver {
+class Ambient extends ChangeNotifier with WidgetsBindingObserver, WindowListener {
   Ambient._() {
     WidgetsBinding.instance.addObserver(this);
+    if (Platform.isWindows || Platform.isLinux || Platform.isMacOS) {
+      windowManager.addListener(this);
+      // Flutter lifecycle events alone do not reliably report a minimized
+      // desktop window, so track native window focus as well.
+      windowManager.isFocused().then((focused) {
+        _windowFocused = focused;
+        _sync();
+      }).catchError((_) {});
+    }
   }
 
   static final instance = Ambient._();
@@ -33,6 +43,7 @@ class Ambient extends ChangeNotifier with WidgetsBindingObserver {
   Timer? _timer;
   int _rate = 0;
   int _users = 0;
+  bool _windowFocused = true;
 
   /// Seconds since previous tick (clamped).
   double dt = 0;
@@ -53,8 +64,37 @@ class Ambient extends ChangeNotifier with WidgetsBindingObserver {
     _sync();
   }
 
+  @override
+  void onWindowBlur() {
+    _windowFocused = false;
+    _sync();
+  }
+
+  @override
+  void onWindowFocus() {
+    _windowFocused = true;
+    _sync();
+  }
+
+  @override
+  void onWindowMinimize() {
+    _windowFocused = false;
+    _sync();
+  }
+
+  @override
+  void onWindowRestore() {
+    windowManager.isFocused().then((focused) {
+      _windowFocused = focused;
+      _sync();
+    }).catchError((_) {
+      _windowFocused = true;
+      _sync();
+    });
+  }
+
   void _sync() {
-    final rate = _users <= 0
+    final rate = _users <= 0 || !_windowFocused
         ? 0
         : switch (_life) {
             AppLifecycleState.resumed => fps,
