@@ -4,6 +4,7 @@ import '../../state/app_state.dart';
 import '../../state/models.dart';
 import '../widgets/common.dart';
 import '../widgets/protocol_badges.dart';
+import 'experiment_lab_page.dart';
 
 class ServersPage extends StatelessWidget {
   const ServersPage({super.key});
@@ -16,7 +17,7 @@ class ServersPage extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         PageHeader(
-          title: 'Серверы',
+          title: 'Прокси',
           subtitle: group == null
               ? null
               : '${proxyTypeLabel(group.type)} · ${_variantCountLabel(group.all.length)}',
@@ -44,6 +45,7 @@ class ServersPage extends StatelessWidget {
             ],
           ],
         ),
+        if (state.isConnected) _ProxyOverview(state: state, group: group),
         if (!state.isConnected)
           const Expanded(child: _NotConnected())
         else ...[
@@ -69,6 +71,82 @@ class ServersPage extends StatelessWidget {
             ),
         ],
       ],
+    );
+  }
+}
+
+class _ProxyOverview extends StatelessWidget {
+  const _ProxyOverview({required this.state, required this.group});
+
+  final AppState state;
+  final ProxyNode? group;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final t = Theme.of(context).textTheme;
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(32, 0, 32, 14),
+      child: Container(
+        padding: const EdgeInsets.all(18),
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [
+              scheme.primaryContainer.withValues(alpha: 0.94),
+              scheme.tertiaryContainer.withValues(alpha: 0.72),
+            ],
+          ),
+          borderRadius: BorderRadius.circular(26),
+          border: Border.all(color: scheme.primary.withValues(alpha: 0.18)),
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 48,
+              height: 48,
+              decoration: BoxDecoration(
+                color: scheme.surface.withValues(alpha: 0.72),
+                borderRadius: BorderRadius.circular(17),
+              ),
+              child: Icon(Icons.hub_rounded, color: scheme.primary, size: 26),
+            ),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('Прокси', style: t.titleMedium?.copyWith(fontWeight: FontWeight.w700)),
+                  const SizedBox(height: 3),
+                  Text(
+                    '${state.proxyConfigs.length} узлов · ${state.groups.length} групп · ${group?.name ?? 'нет активной группы'}',
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: t.bodySmall?.copyWith(color: scheme.onSurfaceVariant),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 8),
+            Tooltip(
+              message: 'Открыть диагностику сети',
+              child: FilledButton.tonalIcon(
+                onPressed: () => Navigator.of(context).push(
+                  MaterialPageRoute<void>(
+                    builder: (_) => Scaffold(
+                      appBar: AppBar(title: const Text('Brew Network Lab')),
+                      body: const SafeArea(child: ExperimentLabPage(showHeader: false)),
+                    ),
+                  ),
+                ),
+                icon: const Icon(Icons.monitor_heart_outlined),
+                label: const Text('Диагностика'),
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }
