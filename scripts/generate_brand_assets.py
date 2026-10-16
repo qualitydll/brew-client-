@@ -13,9 +13,13 @@ BRAND_BACKGROUND = (30, 20, 16)
 def square_icon(image: Image.Image, size: int) -> Image.Image:
     """Fit the complete original artwork on a square Brew-colored canvas."""
     source = image.convert("RGBA")
+    # Android launchers mask adaptive icons into circles/squircles. Keep the
+    # complete source mark well inside that mask instead of letting its edges
+    # be clipped on some devices.
+    safe_size = int(size * 0.70)
     fitted = ImageOps.contain(
         source,
-        (size - max(2, size // 12), size - max(2, size // 12)),
+        (safe_size, safe_size),
         method=Image.Resampling.LANCZOS,
     )
     canvas = Image.new("RGBA", (size, size), (*BRAND_BACKGROUND, 255))
