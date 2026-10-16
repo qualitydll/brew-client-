@@ -32,7 +32,7 @@ class _Dest {
 
 const _dests = [
   _Dest('Главная', Icons.bolt_outlined, Icons.bolt_rounded),
-  _Dest('Узлы', Icons.public_outlined, Icons.public_rounded),
+  _Dest('Прокси', Icons.hub_outlined, Icons.hub_rounded),
   _Dest('Профили', Icons.layers_outlined, Icons.layers_rounded),
   _Dest('Журнал', Icons.receipt_long_outlined, Icons.receipt_long_rounded),
   _Dest('Настр.', Icons.tune_outlined, Icons.tune_rounded),
