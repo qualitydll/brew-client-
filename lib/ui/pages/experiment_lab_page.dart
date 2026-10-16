@@ -164,8 +164,8 @@ class _ExperimentLabPageState extends State<ExperimentLabPage> {
       children: [
         if (widget.showHeader)
           PageHeader(
-            title: 'Experiment Lab',
-            subtitle: 'Экспериментальная диагностика соединения и маршрутов Mihomo',
+            title: 'Brew Network Lab',
+            subtitle: 'Адаптивная диагностика сети, прокси и маршрутов',
           ),
         const SizedBox(height: 8),
         Card(
@@ -180,7 +180,7 @@ class _ExperimentLabPageState extends State<ExperimentLabPage> {
                     const SizedBox(width: 12),
                     Expanded(
                       child: Text(
-                        'Состояние эксперимента',
+                        'Состояние сети',
                         style: Theme.of(context).textTheme.titleLarge,
                       ),
                     ),
@@ -196,8 +196,8 @@ class _ExperimentLabPageState extends State<ExperimentLabPage> {
                 const SizedBox(height: 8),
                 Text(
                   state.isConnected
-                      ? 'Лаборатория использует текущий Mihomo API: проверяет задержку узлов, маршрут и активные соединения.'
-                      : 'При отключённом VPN проверяется только доступность TCP-портов узлов активной подписки.',
+                      ? 'Проверяем качество соединения через текущий Mihomo: задержку узлов, выбранный маршрут и активные соединения. Ядро и настройки профиля не меняются автоматически.'
+                      : 'Если VPN отключён, проверяем доступность TCP-портов серверов из активной подписки. Это помогает локализовать сбой, но не подтверждает работу протокола.',
                   style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                         color: scheme.onSurfaceVariant,
                       ),
@@ -218,7 +218,7 @@ class _ExperimentLabPageState extends State<ExperimentLabPage> {
                               child: CircularProgressIndicator(strokeWidth: 2),
                             )
                           : const Icon(Icons.play_arrow_rounded),
-                      label: Text(_running ? 'Проверяем…' : 'Запустить диагностику'),
+                      label: Text(_running ? 'Проверяем…' : 'Проверить соединение'),
                     ),
                     OutlinedButton.icon(
                       onPressed: !state.isConnected || _selectingBest || _running
@@ -281,9 +281,7 @@ class _ExperimentLabPageState extends State<ExperimentLabPage> {
           child: const Padding(
             padding: EdgeInsets.all(16),
             child: Text(
-              'Важно: Experiment Lab не меняет конфигурацию ядра и не обещает обход '
-              'сетевых ограничений. «Выбрать лучший узел» использует штатный тест '
-              'задержки Mihomo и меняет выбранный узел только после успешной проверки.',
+              'Adaptive Network — экспериментальный слой диагностики Brew. Он помогает понять, на каком этапе возникает проблема, и выбрать узел по штатному тесту Mihomo. Результат проверки не гарантирует доступность каждого сайта; автоматическая смена конфигурации ядра отключена, чтобы не ломать профиль провайдера.',
             ),
           ),
         ),
