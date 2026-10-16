@@ -151,7 +151,7 @@ class _Logo extends StatelessWidget {
       curve: Curves.easeOut,
       width: 48,
       height: 48,
-      padding: const EdgeInsets.all(5),
+      padding: const EdgeInsets.all(8),
       decoration: BoxDecoration(
         color: scheme.surfaceContainerHighest.withValues(alpha: 0.55),
         borderRadius: BorderRadius.circular(14),
